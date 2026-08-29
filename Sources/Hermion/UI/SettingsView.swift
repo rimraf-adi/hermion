@@ -53,12 +53,26 @@ public struct SettingsView: View {
                         .foregroundColor(.green)
                         .font(.caption)
                     } else {
-                        Button("Grant Access") {
-                            TextInjector.promptAccessibilityPermission()
+                        HStack(spacing: 8) {
+                            Button("Grant Access") {
+                                TextInjector.promptAccessibilityPermission()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            
+                            Button("Relaunch App") {
+                                relaunchApp()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
                     }
+                }
+                
+                if !isAccessibilityOk {
+                    Text("ℹ️ After toggling Hermion in System Settings, click 'Relaunch App' to activate permissions.")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
                 }
             }
             
@@ -76,12 +90,21 @@ public struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 380)
+        .frame(width: 440, height: 400)
         .onAppear {
             isAccessibilityOk = TextInjector.isAccessibilityGranted()
         }
         .onReceive(timer) { _ in
             isAccessibilityOk = TextInjector.isAccessibilityGranted()
         }
+    }
+    
+    private func relaunchApp() {
+        let bundleURL = Bundle.main.bundleURL
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-n", bundleURL.path]
+        try? process.run()
+        NSApp.terminate(nil)
     }
 }
