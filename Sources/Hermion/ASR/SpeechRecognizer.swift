@@ -20,6 +20,12 @@ public class SpeechRecognizer: ObservableObject {
     }
     
     public func requestSpeechPermission(completion: @escaping (Bool) -> Void) {
+        let currentStatus = SFSpeechRecognizer.authorizationStatus()
+        if currentStatus == .authorized {
+            completion(true)
+            return
+        }
+        
         SFSpeechRecognizer.requestAuthorization { status in
             DispatchQueue.main.async {
                 switch status {
@@ -50,13 +56,13 @@ public class SpeechRecognizer: ObservableObject {
         }
         
         guard recognizer.isAvailable else {
-            throw NSError(domain: "HermionSpeech", code: 2, userInfo: [NSLocalizedDescriptionKey: "Speech recognizer is temporarily unavailable. Check Internet or Dictation settings."])
+            throw NSError(domain: "HermionSpeech", code: 2, userInfo: [NSLocalizedDescriptionKey: "Speech recognizer is temporarily unavailable."])
         }
         
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         
-        // Attempt on-device recognition if supported
+        // Use on-device if available, otherwise standard
         if recognizer.supportsOnDeviceRecognition {
             request.requiresOnDeviceRecognition = true
         } else {

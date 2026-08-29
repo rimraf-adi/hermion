@@ -11,7 +11,8 @@ public class AudioEngineManager: ObservableObject {
     public init() {}
     
     public func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        switch status {
         case .authorized:
             completion(true)
         case .notDetermined:
