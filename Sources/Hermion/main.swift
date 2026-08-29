@@ -2,12 +2,28 @@ import AppKit
 import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private var mainWindow: NSWindow?
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Run as floating accessory agent
-        NSApp.setActivationPolicy(.accessory)
+        // Standard regular app with Dock icon and Menu Bar
+        NSApp.setActivationPolicy(.regular)
         
-        // Show the Wispr Flow floating pill immediately on screen
-        DispatchQueue.main.async {
+        // Setup Main Dashboard Window
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 600),
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Hermion Voice Keyboard"
+        window.center()
+        window.contentView = NSHostingView(rootView: MainDashboardView())
+        window.isReleasedWhenClosed = false
+        window.makeKeyAndOrderFront(nil)
+        self.mainWindow = window
+        
+        // Setup floating Wispr Flow pill
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             FloatingOverlayPanel.shared.showPanel()
         }
         
@@ -25,14 +41,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         
-        // Initialize macOS Menu Bar
+        // Setup macOS Menu Bar
         MenuBarManager.shared.setupMenuBar()
         
         // Pre-prompt permissions
         AppState.shared.audioManager.requestMicrophonePermission { _ in }
         AppState.shared.speechRecognizer.requestSpeechPermission { _ in }
         
-        print("Hermion Wispr Flow Voice Keyboard active. Floating pill displayed on screen. Press F5 or click Mic to dictate.")
+        NSApp.activate(ignoringOtherApps: true)
+        print("Hermion Voice Keyboard started successfully.")
+    }
+    
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false // Stay running in menu bar and floating pill when main window is closed
+    }
+    
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            mainWindow?.makeKeyAndOrderFront(nil)
+        }
+        return true
     }
 }
 
