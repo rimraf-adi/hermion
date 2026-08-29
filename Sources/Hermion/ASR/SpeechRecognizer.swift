@@ -61,13 +61,8 @@ public class SpeechRecognizer: ObservableObject {
         
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
-        
-        // Use on-device if available, otherwise standard
-        if recognizer.supportsOnDeviceRecognition {
-            request.requiresOnDeviceRecognition = true
-        } else {
-            request.requiresOnDeviceRecognition = false
-        }
+        // Set to false to allow automatic hybrid local/cloud dispatch without stalling if local asset is not pre-cached
+        request.requiresOnDeviceRecognition = false
         
         self.recognitionRequest = request
         self.isRecognizing = true
@@ -87,7 +82,7 @@ public class SpeechRecognizer: ObservableObject {
             }
             
             if let error = error {
-                print("Speech recognition error: \(error.localizedDescription)")
+                print("Speech recognition status: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.errorDescription = error.localizedDescription
                 }

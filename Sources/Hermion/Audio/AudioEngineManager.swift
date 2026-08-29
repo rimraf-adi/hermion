@@ -29,12 +29,13 @@ public class AudioEngineManager: ObservableObject {
     }
     
     public func start() throws {
-        guard !isRunning else { return }
+        if isRunning {
+            stop()
+        }
         
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
         
-        // Remove existing tap if any
         inputNode.removeTap(onBus: 0)
         
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, time in
@@ -68,6 +69,7 @@ public class AudioEngineManager: ObservableObject {
         guard isRunning else { return }
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
+        audioEngine.reset()
         isRunning = false
         DispatchQueue.main.async {
             self.audioLevel = 0.0
