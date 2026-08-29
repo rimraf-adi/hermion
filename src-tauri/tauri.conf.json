@@ -17,7 +17,7 @@
         "width": 420,
         "height": 680,
         "resizable": true,
-        "visible": false,
+        "visible": true,
         "center": true,
         "decorations": true,
         "transparent": false
@@ -57,20 +57,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "externalBin": [
+      "bin/hermion-sidecar"
+    ],
     "macOS": {
       "minimumSystemVersion": "12.0"
-    }
-  },
-  "plugins": {
-    "shell": {
-      "scope": [
-        {
-          "name": "hermion-sidecar",
-          "cmd": "",
-          "sidecar": true,
-          "args": true
-        }
-      ]
     }
   }
 }

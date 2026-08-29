@@ -174,13 +174,16 @@ fn find_sidecar_executable() -> Result<std::path::PathBuf> {
         }
     }
 
-    // 2. Check target/debug or target/release (workspace dev)
+    // 2. Check target/debug, target/release, and bin directories with and without target triple
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let target_triple = env!("TAURI_ENV_TARGET_TRIPLE");
     let candidates = [
+        manifest_dir.join(format!("bin/hermion-sidecar-{}", target_triple)),
+        manifest_dir.join("bin/hermion-sidecar"),
         manifest_dir.join("../src-sidecar/target/debug/hermion-sidecar"),
         manifest_dir.join("../src-sidecar/target/release/hermion-sidecar"),
-        manifest_dir.join("bin/hermion-sidecar"),
         manifest_dir.join("../target/debug/hermion-sidecar"),
+        manifest_dir.join("../target/release/hermion-sidecar"),
     ];
 
     for candidate in &candidates {
@@ -189,6 +192,6 @@ fn find_sidecar_executable() -> Result<std::path::PathBuf> {
         }
     }
 
-    // Default fallback to path
-    Ok(std::path::PathBuf::from("hermion-sidecar"))
+    // Default fallback
+    Ok(manifest_dir.join(format!("bin/hermion-sidecar-{}", target_triple)))
 }
