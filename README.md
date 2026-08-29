@@ -1,178 +1,70 @@
 # Hermion 🎙️
 
-**Privacy-first, system-wide voice keyboard powered by Moonshine ASR.**
+**Hermion** is an open-source, privacy-first, system-wide native macOS voice keyboard with a floating **Wispr Flow** style pill overlay.
 
-> Type with your voice — anywhere on your computer. All speech processing happens 100% on-device. No audio is ever sent to the cloud.
-
----
-
-## Table of Contents
-
-- [What is the Sidecar?](#what-is-the-sidecar)
-- [Architecture & Data Flow](#architecture--data-flow)
-- [Prerequisites](#prerequisites)
-- [How to Run in Development](#how-to-run-in-development)
-- [How to Build for Production](#how-to-build-for-production)
-- [Project Structure](#project-structure)
-- [Key Features](#key-features)
-- [License](#license)
+Anywhere you can type on your Mac — Terminal, VS Code, Cursor, Chrome, Slack, Notes, etc. — simply press **`F5`** (or click the Menu Bar icon), speak your thoughts, and Hermion instantly transcribes and injects the text into your active app.
 
 ---
 
-## What is the Sidecar?
+## ✨ Features
 
-In Tauri applications, a **sidecar** is an independent companion binary that runs alongside the main desktop app as a separate process.
-
-### Why does Hermion use a sidecar?
-
-1. **Inference Isolation**: Automatic Speech Recognition (ASR) with Moonshine and Voice Activity Detection (VAD) are compute-heavy machine learning workloads. Running them in a dedicated sidecar process ensures the main UI and OS event loops never stutter or freeze.
-2. **Fault Tolerance**: If an AI model runs out of memory or encounters an issue, only the sidecar restarts — the main Hermion desktop app, system tray, and floating overlay remain fully responsive.
-3. **Clean IPC Protocol**: The main Tauri app and the sidecar communicate via fast, lightweight JSON messages over standard input/output (`stdin` / `stdout`).
-
-```
-[ Microphone ] ──► [ Tauri Core (Rust) ] ──(Audio Chunks / Stdin)──► [ Sidecar (Moonshine ASR) ]
-                         │                                                    │
-                 (System Paste / Key)                                 (JSON Events / Stdout)
-                         │                                                    │
-                         ▼                                                    ▼
-                 [ Focused App ] ◄─────── [ Floating Overlay UI ] ◄───────────┘
-```
+- 🛸 **Wispr Flow Floating Overlay**: An ultra-compact, non-intrusive floating pill (`✕  ■■■■■■■■  ■`) that floats throughout your entire macOS workspace across all Desktops and fullscreen apps without stealing focus from your cursor.
+- ⚡ **Real-Time 60fps Equalizer**: Dynamic animated sound waves that bounce with speech amplitude.
+- 🔒 **100% On-Device & Private**: Runs directly on Apple Silicon with zero network requests and zero latency.
+- ⌨️ **Universal Text Injection**: Injects transcribed text into any focused macOS input field with automatic clipboard preservation and restoration.
+- 🗣️ **Spoken Commands**: Automatic punctuation and voice commands ("new line", "comma", "period", "question mark", "open paren", "quote", etc.).
+- 🌐 **Menu Bar Integration**: Native macOS status bar icon for instant access, history review, settings, and controls.
 
 ---
 
-## Architecture & Data Flow
+## 🚀 Quick Start
 
-1. **User triggers input**: Press `F5` (push-to-talk or toggle mode) or click the microphone button.
-2. **Audio Capture**: Tauri's Rust backend captures microphone audio via `cpal`, converts it to 16kHz mono PCM, and calculates real-time RMS levels for the visual waveform.
-3. **Streaming to Sidecar**: Base64-encoded audio chunks are piped into the `hermion-sidecar` process.
-4. **On-Device Inference**: Moonshine ASR runs streaming inference and emits partial and final transcriptions.
-5. **Real-time UI**: The floating overlay pill displays the live transcript and mini-waveform.
-6. **System-wide Injection**: When speech ends, the transcribed text is automatically typed or pasted into whichever app is currently focused (VS Code, Chrome, Terminal, Slack, etc.).
+### Prerequisites
+- macOS 13.0+ (Apple Silicon or Intel)
+- Xcode Command Line Tools (`xcode-select --install`)
 
----
-
-## Prerequisites
-
-Ensure you have the following installed on your machine:
-
-- **Node.js**: `v20+` ([Download](https://nodejs.org/))
-- **Rust & Cargo**: `1.80+` ([Install via rustup](https://rustup.rs/))
-- **Platform requirements**:
-  - **macOS**: macOS 12+ (Xcode Command Line Tools installed via `xcode-select --install`)
-  - **Windows**: Windows 10/11 with WebView2 runtime
-  - **Linux**: `libwebkit2gtk-4.1-dev`, `build-essential`, `curl`, `wget`, `file`, `libssl-dev`, `libasound2-dev`
-
----
-
-## How to Run in Development
-
-### 1. Clone the repository
+### Build & Run
 ```bash
+# Clone the repository
 git clone https://github.com/rimraf-adi/hermion.git
 cd hermion
+
+# Build and launch Hermion
+swift run Hermion
 ```
 
-### 2. Install frontend dependencies
+Or build a release binary:
 ```bash
-npm install
-```
-
-### 3. Build the sidecar binary
-Before launching the app, compile the companion inference sidecar:
-```bash
-npm run build:sidecar
-```
-
-### 4. Start the development server
-```bash
-npm run tauri dev
-```
-
-This will:
-- Start the Vite development server for the SolidJS frontend (`http://localhost:1420`).
-- Compile the Tauri Rust core.
-- Launch the Hermion desktop application with hot-reloading enabled.
-
----
-
-## How to Build for Production
-
-To create a standalone production release package (`.dmg` on macOS, `.msi` / `.exe` on Windows, `.deb` / `.AppImage` on Linux):
-
-```bash
-# 1. Build the sidecar binary
-npm run build:sidecar
-
-# 2. Build the production bundle
-npm run tauri build
-```
-
-The output installers will be generated in:
-```
-src-tauri/target/release/bundle/
+swift build -c release
+# Executable located at: .build/release/Hermion
 ```
 
 ---
 
-## Project Structure
+## 🎯 How to Use
 
-```
-hermion/
-├── src/                          # Frontend (SolidJS + TypeScript)
-│   ├── App.tsx                   # Main app component & routing
-│   ├── components/
-│   │   ├── HomeView.tsx          # Voice dictation dashboard & waveform
-│   │   ├── OverlayView.tsx       # Minimal floating always-on-top pill
-│   │   ├── SettingsView.tsx      # Audio, model, hotkey & theme settings
-│   │   ├── HistoryView.tsx       # Searchable transcription history
-│   │   ├── Waveform.tsx          # Real-time audio visualizer
-│   │   └── Onboarding.tsx        # First-run setup wizard
-│   ├── stores/                   # Reactive state stores
-│   │   └── app-store.ts
-│   ├── lib/                      # Tauri typed IPC bridge
-│   │   └── tauri-bridge.ts
-│   └── styles/
-│       └── index.css             # Design system & dark theme tokens
-│
-├── src-tauri/                    # Tauri Backend (Rust)
-│   ├── src/
-│   │   ├── lib.rs                # App entry point, system tray, hotkeys
-│   │   ├── main.rs               # Binary entry point
-│   │   ├── commands.rs           # Frontend IPC command handlers
-│   │   ├── sidecar.rs            # Sidecar lifecycle & stdio piping manager
-│   │   ├── audio.rs              # Microphone capture & 16kHz resampling (cpal)
-│   │   ├── injection.rs          # System-wide text injection (enigo & clipboard)
-│   │   ├── db.rs                 # SQLite persistence (rusqlite)
-│   │   └── models.rs             # Shared data models & IPC protocol types
-│   ├── bin/                      # Compiled sidecar binary directory
-│   ├── capabilities/             # Tauri v2 security & permission capabilities
-│   └── tauri.conf.json           # Tauri configuration
-│
-├── src-sidecar/                  # Moonshine ASR Sidecar (Rust)
-│   └── src/
-│       ├── main.rs               # JSON stdio message loop (stdin/stdout)
-│       ├── inference.rs          # Moonshine ONNX model pipeline & VAD
-│       └── protocol.rs           # Sidecar protocol types
-│
-├── package.json                  # NPM scripts & dependencies
-└── vite.config.ts                # Vite build configuration
-```
+1. **Start Hermion**: Run `swift run Hermion`.
+2. **Open any app**: (VS Code, TextEdit, Chrome, Terminal, Slack, etc.).
+3. **Press `F5`** (or click the waveform icon in your macOS Menu Bar):
+   - The Wispr Flow pill appears floating smoothly on screen.
+   - Speak your words or code.
+4. **Finish & Paste**:
+   - Press **`F5`** again or click the **Red Stop button (`■`)** to insert your text.
+5. **Cancel**:
+   - Click the **Grey Cancel button (`✕`)** to discard the audio without typing anything.
 
 ---
 
-## Key Features
+## 🛠️ Architecture
 
-- 🎙️ **Push-to-Talk / Toggle** — Global `F5` hotkey works anywhere in your operating system.
-- ⚡ **Real-Time Streaming** — See words transcribed as you speak with sub-200ms latency.
-- 🔒 **100% Offline & Private** — Audio never leaves your device.
-- ⌨️ **System-Wide Input** — Types into any active application (code editors, browsers, terminals, chat apps).
-- 🪟 **Floating Pill Overlay** — Minimal, transparent, always-on-top overlay for distraction-free dictation.
-- 📝 **Spoken Dictation Commands** — Automatically replaces spoken commands like *"new line"*, *"period"*, *"comma"*, *"open paren"*, etc.
-- 🔍 **Searchable History** — Re-inject, copy, or search through past transcriptions saved locally in SQLite.
-- 🧠 **Optional Local LLM Cleanup** — Connect to local Ollama (`llama3`, `mistral`, etc.) for grammar and punctuation polishing.
+Hermion is built with **100% Native Swift, SwiftUI, and AppKit**:
+
+- **Audio Pipeline**: `AVAudioEngine` real-time microphone tap + 60fps RMS power visualizer.
+- **Speech Engine**: Apple Neural Engine on-device `SFSpeechRecognizer` with continuous token streaming.
+- **System Overlay**: `NSPanel` with `.nonactivatingPanel` and `collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]`, ensuring it never steals keyboard focus.
+- **Injection Engine**: `CGEvent` + `NSPasteboard` with automatic clipboard snapshot and restoration.
 
 ---
 
-## License
-
-MIT © [Hermion Contributors](https://github.com/rimraf-adi/hermion)
+## 📄 License
+MIT License

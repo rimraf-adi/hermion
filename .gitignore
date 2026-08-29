@@ -1,38 +1,23 @@
-# Dependencies
-node_modules/
+# Swift / SPM
+.build/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
 
-# Build output
-dist/
-target/
-
-# Environment
-.env
-.env.local
-
-# IDE
+# OS / IDE
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Tauri
-src-tauri/gen/
-src-tauri/target/
-src-tauri/bin/*
-!src-tauri/bin/.gitkeep
-
-# Sidecar
-src-sidecar/target/
-
-# Models (downloaded at runtime, too large for git)
-models/
+# Models & Binaries
 *.onnx
-
-# Database
-*.db
-*.db-journal
+*.bin
+*.model
