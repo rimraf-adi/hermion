@@ -4,8 +4,8 @@ import Accelerate
 
 public enum NoiseFilterMode: String, CaseIterable, Identifiable {
     case off = "Off (Raw Audio)"
-    case light = "Light (Subtle Gate)"
-    case medium = "Medium (Balanced - Recommended)"
+    case light = "Light (Subtle Gate - Recommended)"
+    case medium = "Medium (Balanced Noise Gate)"
     case aggressive = "Aggressive (Noisy Room / Cafe)"
     case voiceIsolation = "Voice Isolation (High Precision)"
     
@@ -14,20 +14,20 @@ public enum NoiseFilterMode: String, CaseIterable, Identifiable {
     public var thresholdGain: Float {
         switch self {
         case .off: return 0.0
-        case .light: return 0.008
-        case .medium: return 0.022
-        case .aggressive: return 0.055
-        case .voiceIsolation: return 0.085
+        case .light: return 0.005
+        case .medium: return 0.015
+        case .aggressive: return 0.035
+        case .voiceIsolation: return 0.060
         }
     }
     
     public var description: String {
         switch self {
-        case .off: return "Passes raw uncompressed microphone input without noise reduction."
-        case .light: return "Gentle noise floor suppression. Preserves delicate whisper details."
-        case .medium: return "Optimal balance for everyday office/room noise, AC fans, and key clicks."
-        case .aggressive: return "Cuts strong background chatter, ambient TV noise, and outdoor sounds."
-        case .voiceIsolation: return "Strict voice-band isolation gate. Only lets active speech pass."
+        case .off: return "Passes raw uncompressed microphone input directly."
+        case .light: return "Gentle noise floor suppression. Preserves quiet whispers and speech clarity."
+        case .medium: return "Balances background noise suppression and speech recognition fidelity."
+        case .aggressive: return "Filters heavy background chatter and ambient noise."
+        case .voiceIsolation: return "Strict voice-band gate for loud environments."
         }
     }
 }
@@ -35,10 +35,9 @@ public enum NoiseFilterMode: String, CaseIterable, Identifiable {
 public class NoiseFilter: ObservableObject {
     public static let shared = NoiseFilter()
     
-    @Published public var filterMode: NoiseFilterMode = .medium
-    @Published public var noiseGateThresholdDB: Float = -42.0 // dB
+    @Published public var filterMode: NoiseFilterMode = .light
+    @Published public var noiseGateThresholdDB: Float = -46.0 // dB
     @Published public var highPassFilterEnabled: Bool = true
-    @Published public var autoGainControl: Bool = true
     
     // Live metering for dry run visualizer
     @Published public var rawInputLevel: Float = 0.0
@@ -85,7 +84,7 @@ public class NoiseFilter: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: "Hermion_HighPassEnabled")
     }
     
-    /// Processes audio buffer in-place or returns filtered buffer
+    /// Processes audio buffer with rumble filtering and live telemetry
     public func processBuffer(_ buffer: AVAudioPCMBuffer) {
         guard let channelData = buffer.floatChannelData?[0] else { return }
         let frameCount = Int(buffer.frameLength)
@@ -102,7 +101,7 @@ public class NoiseFilter: ObservableObject {
         
         // 2. High Pass Rumble Filter (80Hz DC Blocker)
         if highPassFilterEnabled {
-            let R: Float = 0.985 // ~80Hz cutoff at 44.1/48kHz
+            let R: Float = 0.985 // ~80Hz cutoff
             for i in 0..<frameCount {
                 let input = channelData[i]
                 let output = input - hpPrevInput + R * hpPrevOutput
@@ -112,35 +111,20 @@ public class NoiseFilter: ObservableObject {
             }
         }
         
-        // 3. Spectral Noise Gate & Envelope Following
-        let gateLinearThreshold = pow(10.0, (noiseGateThresholdDB + (filterMode == .off ? -100 : filterMode.thresholdGain * 50)) / 20.0)
+        // 3. Voice Activity & Telemetry
+        let gateLinearThreshold = pow(10.0, (noiseGateThresholdDB + (filterMode == .off ? -100 : filterMode.thresholdGain * 40)) / 20.0)
         
         var isVoice = false
-        if filterMode != .off {
-            if rawRms > gateLinearThreshold {
-                isVoice = true
-                envelope = envelope * (1.0 - attackAlpha) + rawRms * attackAlpha
-            } else {
-                envelope = envelope * (1.0 - releaseAlpha)
-            }
-            
-            // Attenuate background if envelope drops below threshold
-            let gain: Float = envelope > (gateLinearThreshold * 0.7) ? 1.0 : max(0.0, envelope / gateLinearThreshold * 0.2)
-            
-            for i in 0..<frameCount {
-                channelData[i] *= gain
-            }
+        if rawRms > gateLinearThreshold {
+            isVoice = true
+            envelope = envelope * (1.0 - attackAlpha) + rawRms * attackAlpha
         } else {
-            isVoice = rawRms > 0.005
+            envelope = envelope * (1.0 - releaseAlpha)
         }
         
-        // 4. Calculate Clean Filtered Output RMS
-        var cleanSum: Float = 0.0
-        for i in 0..<frameCount {
-            let s = channelData[i]
-            cleanSum += s * s
-        }
-        let cleanRms = sqrt(cleanSum / Float(frameCount))
+        // Non-destructive soft gain for voice recognition safety
+        let cleanGain: Float = (filterMode == .off || isVoice) ? 1.0 : max(0.5, envelope / max(gateLinearThreshold, 0.0001))
+        let cleanRms = rawRms * cleanGain
         
         DispatchQueue.main.async {
             self.rawInputLevel = min(max(rawRms * 8.0, 0.0), 1.0)

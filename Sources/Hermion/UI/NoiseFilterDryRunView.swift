@@ -3,6 +3,7 @@ import AppKit
 
 public struct NoiseFilterDryRunView: View {
     @ObservedObject var noiseFilter = NoiseFilter.shared
+    @ObservedObject var micManager = MicrophoneManager.shared
     @ObservedObject var appState = AppState.shared
     @ObservedObject var themeManager = ThemeManager.shared
     
@@ -19,7 +20,7 @@ public struct NoiseFilterDryRunView: View {
                         .foregroundColor(themeManager.currentTheme.primaryColor)
                         .font(.system(size: 14, weight: .bold))
                     
-                    Text("Noise Reduction & Dry-Run")
+                    Text("Microphone & Audio Processing")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
@@ -48,6 +49,45 @@ public struct NoiseFilterDryRunView: View {
                 }
                 .buttonStyle(.plain)
             }
+            
+            // ── MICROPHONE DEVICE SELECTOR ─────────────────────────
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: "mic.fill")
+                        .foregroundColor(themeManager.currentTheme.primaryColor)
+                        .font(.system(size: 11))
+                    Text("Input Microphone Device:")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.85))
+                    Spacer()
+                    Button(action: {
+                        micManager.refreshDevices()
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10))
+                            .foregroundColor(.gray)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh available microphones")
+                }
+                
+                Picker("", selection: $micManager.selectedDeviceUniqueID) {
+                    ForEach(micManager.availableDevices) { dev in
+                        Text(dev.name).tag(dev.uniqueID)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: micManager.selectedDeviceUniqueID) { newID in
+                    micManager.selectDevice(uniqueID: newID)
+                    if isDryRunTesting {
+                        toggleDryRun()
+                        toggleDryRun()
+                    }
+                }
+            }
+            .padding(10)
+            .background(Color.white.opacity(0.04))
+            .cornerRadius(8)
             
             // Dual Live Meters (Raw Input vs Cleaned Filtered Output)
             VStack(spacing: 8) {
@@ -164,6 +204,9 @@ public struct NoiseFilterDryRunView: View {
                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
+        .onAppear {
+            micManager.refreshDevices()
+        }
     }
     
     private func toggleDryRun() {

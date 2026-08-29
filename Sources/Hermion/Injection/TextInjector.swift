@@ -17,27 +17,37 @@ public struct TextInjector {
         }
     }
     
-    /// Simple, clean single paste: copies to clipboard and triggers a single Cmd+V
+    /// Reliable, universal text injection across all macOS apps
     public static func injectViaPasteboard(_ text: String) {
-        guard !text.isEmpty else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
         
+        // 1. Copy text to system clipboard
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        pasteboard.setString(trimmed, forType: .string)
         
-        // Single clean Cmd+V key event
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let vKeyCode: CGKeyCode = 9 // ANSI V
-        
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) else {
-            return
+        // 2. Allow brief moment for pasteboard sync across target applications
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            let vKeyCode: CGKeyCode = 9 // ANSI V
+            
+            // Method A: Hardware CGEvent Cmd+V
+            let source = CGEventSource(stateID: .hidSystemState)
+            if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
+               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) {
+                keyDown.flags = .maskCommand
+                keyUp.flags = .maskCommand
+                
+                keyDown.post(tap: .cghidEventTap)
+                keyUp.post(tap: .cghidEventTap)
+            }
+            
+            // Method B: AppleScript System Events fallback for Electron/Terminals/Sandboxed Apps
+            let script = "tell application \"System Events\" to keystroke \"v\" using command down"
+            if let appleScript = NSAppleScript(source: script) {
+                var error: NSDictionary?
+                appleScript.executeAndReturnError(&error)
+            }
         }
-        
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
     }
 }
