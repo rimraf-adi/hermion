@@ -18,11 +18,14 @@ public class FloatingOverlayPanel: NSPanel {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = false
-        self.isMovableByWindowBackground = true
+        self.isMovableByWindowBackground = false
         self.hidesOnDeactivate = false
         self.canHide = false
         
         let hostingView = NSHostingView(rootView: WisprPillView())
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.masksToBounds = false
         self.contentView = hostingView
         
         centerOnScreen()

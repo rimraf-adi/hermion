@@ -181,33 +181,36 @@ public struct WisprPillView: View {
             height: 42
         )
         .background(
+            ZStack {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                
+                Capsule()
+                    .fill(Color.black.opacity(0.65))
+            }
+            .clipShape(Capsule())
+        )
+        .overlay(
             Capsule()
-                .fill(Color.black.opacity(0.55))
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.35),
+                            themeManager.currentTheme.primaryColor.opacity(appState.isListening ? 0.5 : 0.18),
+                            Color.white.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
                 )
-                .overlay(
-                    Capsule()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.32),
-                                    themeManager.currentTheme.primaryColor.opacity(appState.isListening ? 0.45 : 0.15),
-                                    Color.white.opacity(0.06)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(
-                    color: appState.isListening ? themeManager.currentTheme.glowColor.opacity(0.35) : Color.black.opacity(0.45),
-                    radius: appState.isListening ? 20 : 14,
-                    x: 0,
-                    y: 6
-                )
+        )
+        .clipShape(Capsule())
+        .shadow(
+            color: appState.isListening ? themeManager.currentTheme.glowColor.opacity(0.4) : Color.black.opacity(0.45),
+            radius: appState.isListening ? 14 : 6,
+            x: 0,
+            y: 3
         )
         .gesture(
             DragGesture(minimumDistance: 2)
