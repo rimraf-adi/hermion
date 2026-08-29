@@ -41,7 +41,10 @@ public class AudioEngineManager: ObservableObject {
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, time in
             guard let self = self else { return }
             
-            // Calculate RMS audio level for UI equalizer
+            // 1. Process Noise Reduction & Spectral Gate
+            NoiseFilter.shared.processBuffer(buffer)
+            
+            // 2. Calculate RMS audio level for UI equalizer
             if let channelData = buffer.floatChannelData?[0] {
                 let frameLength = UInt(buffer.frameLength)
                 var sum: Float = 0.0

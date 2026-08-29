@@ -157,6 +157,11 @@ public struct SettingsView: View {
                 .cornerRadius(6)
             }
             
+            // ── NOISE REDUCTION & AUDIO PROCESSING ──────────────────
+            Section(header: Text("Noise Reduction & Audio Processing").font(.headline)) {
+                NoiseFilterDryRunView()
+            }
+            
             // ── GENERAL & STARTUP ───────────────────────────────────
             Section(header: Text("General & Startup").font(.headline)) {
                 Toggle("Launch Hermion on Startup", isOn: $isLaunchAtLogin)
