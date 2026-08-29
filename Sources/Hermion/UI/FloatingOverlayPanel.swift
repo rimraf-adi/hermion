@@ -6,7 +6,7 @@ public class FloatingOverlayPanel: NSPanel {
     
     private init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 190, height: 48),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 180),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -31,7 +31,7 @@ public class FloatingOverlayPanel: NSPanel {
     public func centerOnScreen() {
         if let screen = NSScreen.main {
             let screenRect = screen.visibleFrame
-            let x = screenRect.midX - 95
+            let x = screenRect.midX - 250
             let y = screenRect.minY + 90 // Float gracefully near bottom center
             self.setFrameOrigin(NSPoint(x: x, y: y))
         }
@@ -43,8 +43,6 @@ public class FloatingOverlayPanel: NSPanel {
     }
     
     public func hidePanel() {
-        // In persistent pill mode, stays visible in idle state
-        // If explicitly hiding:
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.12
             self.animator().alphaValue = 0.0

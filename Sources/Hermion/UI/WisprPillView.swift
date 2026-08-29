@@ -1,36 +1,47 @@
 import SwiftUI
+import AppKit
 
 public struct WisprPillView: View {
     @ObservedObject var appState = AppState.shared
+    @State private var dragOffset: CGSize = .zero
     
     private let numDots = 10
     
     public init() {}
     
     public var body: some View {
-        VStack(spacing: 6) {
-            // Live transcription preview tooltip while speaking
+        VStack(spacing: 8) {
+            // ── EXPANDED LIVE TRANSCRIPTION BUBBLE ───────────
             if appState.isListening && !appState.currentTranscript.isEmpty {
-                Text(appState.currentTranscript)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(red: 0.1, green: 0.1, blue: 0.14).opacity(0.95))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.5), radius: 8, y: 4)
-                    )
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "quote.bubble.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.purple)
+                        .padding(.top, 2)
+                    
+                    Text(appState.currentTranscript)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                        .lineLimit(4)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .frame(maxWidth: 440)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(red: 0.08, green: 0.08, blue: 0.12).opacity(0.96))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.6), radius: 14, y: 6)
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
             
-            // The Main Wispr Flow Capsule Pill
+            // ── MAIN WISPR FLOW CAPSULE PILL ────────────────
             HStack(spacing: 8) {
                 if appState.isListening {
                     // ── LISTENING STATE ─────────────────────────────
@@ -152,6 +163,22 @@ public struct WisprPillView: View {
             )
             .frame(width: 184, height: 44)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .gesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { value in
+                    if let window = NSApp.windows.first(where: { $0 is FloatingOverlayPanel }) {
+                        var frame = window.frame
+                        frame.origin.x += value.translation.width - dragOffset.width
+                        frame.origin.y -= value.translation.height - dragOffset.height
+                        window.setFrame(frame, display: true)
+                        dragOffset = value.translation
+                    }
+                }
+                .onEnded { _ in
+                    dragOffset = .zero
+                }
+        )
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: appState.isListening)
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: appState.showInjectedToast)
         .animation(.easeInOut(duration: 0.15), value: appState.currentTranscript)
