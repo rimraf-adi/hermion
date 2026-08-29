@@ -17,10 +17,6 @@ mkdir -p "$RESOURCES_DIR"
 cp .build/release/Hermion "$MACOS_DIR/Hermion"
 chmod +x "$MACOS_DIR/Hermion"
 
-if [ -f "Resources/AppIcon.icns" ]; then
-    cp Resources/AppIcon.icns "$RESOURCES_DIR/AppIcon.icns"
-fi
-
 cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -34,8 +30,6 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <string>Hermion</string>
     <key>CFBundleDisplayName</key>
     <string>Hermion</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
