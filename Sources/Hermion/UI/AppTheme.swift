@@ -46,16 +46,58 @@ public class ThemeManager: ObservableObject {
     public static let shared = ThemeManager()
     
     @Published public var currentTheme: AppTheme = .nebulaPurple
+    @Published public var customIdleText: String = ""
+    @Published public var showHotkeyBadge: Bool = false
+    @Published public var pillIdleWidth: CGFloat = 84.0
+    @Published public var pillRecordingWidth: CGFloat = 360.0
     
     private init() {
         if let saved = UserDefaults.standard.string(forKey: "Hermion_AppTheme"),
            let theme = AppTheme(rawValue: saved) {
             self.currentTheme = theme
         }
+        
+        if let text = UserDefaults.standard.string(forKey: "Hermion_CustomIdleText") {
+            self.customIdleText = text
+        }
+        
+        if UserDefaults.standard.object(forKey: "Hermion_ShowHotkeyBadge") != nil {
+            self.showHotkeyBadge = UserDefaults.standard.bool(forKey: "Hermion_ShowHotkeyBadge")
+        }
+        
+        let idleW = UserDefaults.standard.double(forKey: "Hermion_PillIdleWidth")
+        if idleW > 40 {
+            self.pillIdleWidth = CGFloat(idleW)
+        }
+        
+        let recW = UserDefaults.standard.double(forKey: "Hermion_PillRecordingWidth")
+        if recW > 100 {
+            self.pillRecordingWidth = CGFloat(recW)
+        }
     }
     
     public func setTheme(_ theme: AppTheme) {
         self.currentTheme = theme
         UserDefaults.standard.set(theme.rawValue, forKey: "Hermion_AppTheme")
+    }
+    
+    public func setCustomIdleText(_ text: String) {
+        self.customIdleText = text
+        UserDefaults.standard.set(text, forKey: "Hermion_CustomIdleText")
+    }
+    
+    public func setShowHotkeyBadge(_ show: Bool) {
+        self.showHotkeyBadge = show
+        UserDefaults.standard.set(show, forKey: "Hermion_ShowHotkeyBadge")
+    }
+    
+    public func setPillIdleWidth(_ width: CGFloat) {
+        self.pillIdleWidth = width
+        UserDefaults.standard.set(Double(width), forKey: "Hermion_PillIdleWidth")
+    }
+    
+    public func setPillRecordingWidth(_ width: CGFloat) {
+        self.pillRecordingWidth = width
+        UserDefaults.standard.set(Double(width), forKey: "Hermion_PillRecordingWidth")
     }
 }

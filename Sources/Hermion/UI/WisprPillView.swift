@@ -109,8 +109,8 @@ public struct WisprPillView: View {
                 .frame(maxWidth: .infinity)
                 
             } else {
-                // ── 3. SLEEK IDLE CAPSULE ──────────────────────────────────
-                // Left: Themed Glowing Mic
+                // ── 3. ULTRA-MINIMAL IDLE CAPSULE ──────────────────────────
+                // Left: Glowing Themed Mic
                 Button(action: {
                     appState.startListening()
                 }) {
@@ -127,27 +127,33 @@ public struct WisprPillView: View {
                 }
                 .buttonStyle(.plain)
                 
-                // Center: Hotkey Badge & Prompt
-                HStack(spacing: 5) {
-                    Text(hotkeyManager.selectedHotkey.badgeLabel)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.95))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2.5)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.white.opacity(0.12))
-                                .overlay(
+                // Optional Custom Text or Hotkey Badge
+                if !themeManager.customIdleText.isEmpty || themeManager.showHotkeyBadge {
+                    HStack(spacing: 5) {
+                        if themeManager.showHotkeyBadge {
+                            Text(hotkeyManager.selectedHotkey.badgeLabel)
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.95))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2.5)
+                                .background(
                                     RoundedRectangle(cornerRadius: 4)
-                                        .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+                                        .fill(Color.white.opacity(0.12))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+                                        )
                                 )
-                        )
-                    
-                    Text("Speak")
-                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.75))
+                        }
+                        
+                        if !themeManager.customIdleText.isEmpty {
+                            Text(themeManager.customIdleText)
+                                .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                .foregroundColor(.white.opacity(0.75))
+                        }
+                    }
+                    .padding(.horizontal, 4)
                 }
-                .frame(minWidth: 74)
                 
                 // Right: Settings Gear Button
                 Button(action: {
@@ -169,7 +175,9 @@ public struct WisprPillView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .frame(
-            width: appState.isListening ? 380 : 184,
+            width: appState.isListening ? themeManager.pillRecordingWidth : (
+                (!themeManager.customIdleText.isEmpty || themeManager.showHotkeyBadge) ? max(themeManager.pillIdleWidth, 140) : themeManager.pillIdleWidth
+            ),
             height: 42
         )
         .background(
@@ -228,6 +236,9 @@ public struct WisprPillView: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: appState.isListening)
         .animation(.spring(response: 0.32, dampingFraction: 0.82), value: appState.showInjectedToast)
         .animation(.easeInOut(duration: 0.1), value: appState.currentTranscript)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: themeManager.customIdleText)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: themeManager.showHotkeyBadge)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: themeManager.pillIdleWidth)
     }
 }
 

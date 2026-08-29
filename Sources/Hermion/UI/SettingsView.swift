@@ -57,6 +57,49 @@ public struct SettingsView: View {
                 .padding(.vertical, 4)
             }
             
+            // ── FLOATING PILL CUSTOMIZATION & SIZING ────────────────
+            Section(header: Text("Floating Pill Appearance").font(.headline)) {
+                HStack {
+                    Text("Custom Label:")
+                    TextField("Leave blank for minimal icon pill", text: $themeManager.customIdleText)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: themeManager.customIdleText) { newText in
+                            themeManager.setCustomIdleText(newText)
+                        }
+                }
+                
+                Toggle("Show Shortcut Key Badge on Pill", isOn: $themeManager.showHotkeyBadge)
+                    .onChange(of: themeManager.showHotkeyBadge) { val in
+                        themeManager.setShowHotkeyBadge(val)
+                    }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Idle Pill Width:")
+                        Spacer()
+                        Text("\(Int(themeManager.pillIdleWidth)) px")
+                            .foregroundColor(.gray)
+                    }
+                    Slider(value: $themeManager.pillIdleWidth, in: 70...200, step: 2)
+                        .onChange(of: themeManager.pillIdleWidth) { val in
+                            themeManager.setPillIdleWidth(val)
+                        }
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Recording Width:")
+                        Spacer()
+                        Text("\(Int(themeManager.pillRecordingWidth)) px")
+                            .foregroundColor(.gray)
+                    }
+                    Slider(value: $themeManager.pillRecordingWidth, in: 280...440, step: 10)
+                        .onChange(of: themeManager.pillRecordingWidth) { val in
+                            themeManager.setPillRecordingWidth(val)
+                        }
+                }
+            }
+            
             // ── SPEECH RECOGNITION ENGINE ────────────────────────────
             Section(header: Text("Speech Recognition Engine").font(.headline)) {
                 Picker("Voice Engine", selection: $appState.selectedEngine) {
