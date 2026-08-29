@@ -20,7 +20,7 @@
 
 **Hermion** is a native, privacy-first voice keyboard for macOS featuring a **Wispr Flow / Dynamic Island** style morphing glass pill. 
 
-Wherever you can type on your Mac — **VS Code, Cursor, Chrome, Terminal, Slack, Obsidian, Xcode, Notes, Telegram, etc.** — simply press **`Right Shift`** (or your custom shortcut), speak naturally, and Hermion will stream and inject your text into the active field with instantaneous speed.
+Wherever you can type on your Mac (VS Code, Cursor, Chrome, Terminal, Slack, Obsidian, Xcode, Notes, Telegram, etc.), simply press **`Right Shift`** (or your custom shortcut), speak naturally, and Hermion will stream and inject your text into the active field with instantaneous speed.
 
 Zero cloud API calls. Zero subscription fees. 100% local execution on Apple Silicon.
 
