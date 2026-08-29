@@ -14,7 +14,7 @@ import SettingsView from "./components/SettingsView";
 import HistoryView from "./components/HistoryView";
 import Onboarding from "./components/Onboarding";
 import OverlayView from "./components/OverlayView";
-import { isFirstRun, getSettings, injectText, addHistoryEntry } from "./lib/tauri-bridge";
+import { isFirstRun, getSettings, injectText, addHistoryEntry, startListening, stopListening } from "./lib/tauri-bridge";
 import "./styles/index.css";
 
 const MicNavIcon = () => (
@@ -99,16 +99,33 @@ const App: Component = () => {
       setIsVadSpeech(event.payload as boolean);
     });
 
-    listen("hotkey-pressed", (event) => {
-      // Handle push-to-talk hotkey events
+    listen("hotkey-pressed", async (event) => {
       const pressed = event.payload as boolean;
-      if (pressed) {
-        // Handled by HomeView
+      const appSettings = await getSettings();
+      if (appSettings.mode === "push_to_talk") {
+        if (pressed && !isListening()) {
+          await startListening();
+        } else if (!pressed && isListening()) {
+          await stopListening();
+        }
+      } else {
+        // Toggle mode: toggle on key press
+        if (pressed) {
+          if (isListening()) {
+            await stopListening();
+          } else {
+            await startListening();
+          }
+        }
       }
     });
 
-    listen("toggle-listening", () => {
-      // Triggered from system tray
+    listen("toggle-listening", async () => {
+      if (isListening()) {
+        await stopListening();
+      } else {
+        await startListening();
+      }
     });
 
     listen("navigate", (event) => {

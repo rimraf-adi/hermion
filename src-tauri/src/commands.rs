@@ -84,6 +84,11 @@ pub fn stop_listening(
     // Emit state change
     app_handle.emit("listening-state-changed", false).ok();
 
+    // Hide overlay window
+    if let Some(window) = app_handle.get_webview_window("overlay") {
+        window.hide().ok();
+    }
+
     // If we have audio data, encode and forward to sidecar
     if !audio_data.is_empty() {
         let bytes: Vec<u8> = audio_data

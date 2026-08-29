@@ -25,14 +25,15 @@
       {
         "label": "overlay",
         "title": "Hermion Overlay",
-        "width": 480,
-        "height": 72,
+        "width": 200,
+        "height": 60,
         "resizable": false,
         "visible": false,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
+        "shadow": false,
         "center": true,
         "url": "index.html#/overlay"
       }
