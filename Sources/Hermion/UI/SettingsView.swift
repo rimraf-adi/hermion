@@ -3,6 +3,7 @@ import AppKit
 
 public struct SettingsView: View {
     @ObservedObject var appState = AppState.shared
+    @ObservedObject var moonshineEngine = MoonshineEngine.shared
     @State private var isAccessibilityOk = TextInjector.isAccessibilityGranted()
     
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
@@ -11,6 +12,7 @@ public struct SettingsView: View {
     
     public var body: some View {
         Form {
+            // ── SPEECH RECOGNITION ENGINE ────────────────────────────
             Section(header: Text("Speech Recognition Engine").font(.headline)) {
                 Picker("Voice Engine", selection: $appState.selectedEngine) {
                     ForEach(ASREngineType.allCases) { engine in
@@ -24,25 +26,50 @@ public struct SettingsView: View {
                 Text(appState.selectedEngine.description)
                     .font(.caption)
                     .foregroundColor(.gray)
-                
-                if appState.selectedEngine != .apple {
-                    HStack {
-                        Image(systemName: "moon.stars.fill")
-                            .foregroundColor(.purple)
-                        Text("Moonshine ASR Engine active")
-                            .font(.caption2)
-                            .foregroundColor(.purple)
-                        Spacer()
-                        Text("100% On-Device")
-                            .font(.caption2)
-                            .foregroundColor(.green)
-                    }
-                    .padding(6)
-                    .background(Color.purple.opacity(0.1))
-                    .cornerRadius(6)
-                }
             }
             
+            // ── HARDWARE ACCELERATION & COMPUTE BACKEND ──────────────
+            Section(header: Text("Hardware Acceleration & Backend").font(.headline)) {
+                Picker("Compute Backend", selection: $moonshineEngine.computeBackend) {
+                    ForEach(ComputeBackend.allCases) { backend in
+                        HStack {
+                            Image(systemName: backend.icon)
+                            Text(backend.rawValue)
+                        }
+                        .tag(backend)
+                    }
+                }
+                .onChange(of: moonshineEngine.computeBackend) { newBackend in
+                    moonshineEngine.setBackend(newBackend)
+                }
+                
+                Text(moonshineEngine.computeBackend.description)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                Toggle("Auto-Fallback to CPU on High Load", isOn: $moonshineEngine.autoCPUFallback)
+                    .onChange(of: moonshineEngine.autoCPUFallback) { enabled in
+                        moonshineEngine.setAutoCPUFallback(enabled)
+                    }
+                
+                HStack {
+                    Image(systemName: "memorychip.fill")
+                        .foregroundColor(.blue)
+                    Text("Active Inference:")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text(moonshineEngine.activeInferenceDevice)
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
+                }
+                .padding(6)
+                .background(Color.white.opacity(0.04))
+                .cornerRadius(6)
+            }
+            
+            // ── GENERAL & HOTKEYS ───────────────────────────────────
             Section(header: Text("General & Hotkeys").font(.headline)) {
                 Toggle("Push-to-Talk Mode (Hold F5 to speak)", isOn: $appState.isPushToTalk)
                     .help("When enabled, hold F5 to speak and release to inject. When disabled, press F5 once to start, again to stop.")
@@ -61,6 +88,7 @@ public struct SettingsView: View {
                 }
             }
             
+            // ── SYSTEM PERMISSIONS ──────────────────────────────────
             Section(header: Text("System Permissions").font(.headline)) {
                 HStack {
                     Image(systemName: "mic.fill")
@@ -108,6 +136,7 @@ public struct SettingsView: View {
                 }
             }
             
+            // ── ABOUT ───────────────────────────────────────────────
             Section(header: Text("About").font(.headline)) {
                 HStack {
                     Text("Hermion Voice Keyboard")
@@ -116,13 +145,13 @@ public struct SettingsView: View {
                     Text("v1.0.0 Native")
                         .foregroundColor(.gray)
                 }
-                Text("Zero cloud calls • On-device Apple Silicon neural speech & Moonshine ASR • Wispr Flow floating overlay")
+                Text("Zero cloud calls • Apple MLX Metal & CPU backend • Wispr Flow floating overlay")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 480)
+        .frame(width: 440, height: 560)
         .onAppear {
             isAccessibilityOk = TextInjector.isAccessibilityGranted()
         }
