@@ -9,206 +9,198 @@ public struct WisprPillView: View {
     @State private var initialMouseLocation: NSPoint = .zero
     @State private var initialWindowLocation: NSPoint = .zero
     @State private var isDragging = false
+    @State private var cursorBlink = false
     
-    private let numDots = 10
+    private let numDots = 8
     
     public init() {}
     
     public var body: some View {
-        VStack(spacing: 8) {
-            // ── EXPANDED GLASSMORPHIC TRANSCRIPTION BUBBLE ───────────
-            if appState.isListening && !appState.currentTranscript.isEmpty {
-                HStack(alignment: .top, spacing: 10) {
-                    Circle()
-                        .fill(themeManager.currentTheme.gradient)
-                        .frame(width: 8, height: 8)
-                        .padding(.top, 5)
-                        .shadow(color: themeManager.currentTheme.glowColor, radius: 4)
-                    
-                    Text(appState.currentTranscript)
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.white)
-                        .lineLimit(4)
-                        .lineSpacing(3)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .frame(maxWidth: 440)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.black.opacity(0.65))
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(.ultraThinMaterial)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.35), themeManager.currentTheme.primaryColor.opacity(0.4), Color.white.opacity(0.08)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: Color.black.opacity(0.5), radius: 16, x: 0, y: 8)
-                )
-                .transition(.asymmetric(insertion: .scale(scale: 0.95).combined(with: .opacity), removal: .opacity))
-            }
-            
-            // ── MAIN TRANSLUCENT WISPR FLOW CAPSULE PILL ────────────
-            HStack(spacing: 8) {
-                if appState.isListening {
-                    // ── LISTENING STATE ─────────────────────────────
-                    // Left: Cancel Button (Frosted Dark Circle with X)
-                    Button(action: {
-                        appState.cancelListening()
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.white.opacity(0.12))
-                                .frame(width: 30, height: 30)
-                            
-                            Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.white.opacity(0.9))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    
-                    // Center: Dynamic Equalizer with Theme Gradient
-                    HStack(spacing: 3.5) {
-                        ForEach(0..<numDots, id: \.self) { index in
-                            ThemedEqualizerBar(index: index, level: appState.audioLevel, theme: themeManager.currentTheme)
-                        }
-                    }
-                    .frame(width: 70, height: 26)
-                    
-                    // Right: Stop & Insert Button (Gradient Fill with Centered White Square)
-                    Button(action: {
-                        appState.stopListeningAndInject()
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color(red: 0.96, green: 0.35, blue: 0.35), Color(red: 0.88, green: 0.20, blue: 0.30)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 30, height: 30)
-                                .shadow(color: Color(red: 0.96, green: 0.35, blue: 0.35).opacity(0.5), radius: 8)
-                            
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.white)
-                                .frame(width: 9, height: 9)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    
-                } else if appState.showInjectedToast {
-                    // ── TOAST CONFIRMATION STATE ────────────────────
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.system(size: 14))
-                        Text("Pasted (⌘V)")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
-                    .frame(maxWidth: .infinity)
-                    
-                } else {
-                    // ── IDLE / READY STATE ──────────────────────────
-                    // Left: Start Dictation Button (Themed Gradient Mic with Glow)
-                    Button(action: {
-                        appState.startListening()
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(themeManager.currentTheme.gradient)
-                                .frame(width: 30, height: 30)
-                                .shadow(color: themeManager.currentTheme.glowColor, radius: 8)
-                            
-                            Image(systemName: "mic.fill")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    
-                    // Center: Hotkey Badge & Prompt
-                    HStack(spacing: 5) {
-                        Text(hotkeyManager.selectedHotkey.badgeLabel)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.95))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2.5)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.white.opacity(0.12))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
-                                    )
-                            )
+        HStack(spacing: 8) {
+            if appState.isListening {
+                // ── 1. ACTIVE RECORDING MORPHED ISLAND ─────────────────────
+                // Left: Cancel Button (✕)
+                Button(action: {
+                    appState.cancelListening()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.12))
+                            .frame(width: 28, height: 28)
                         
-                        Text("Speak")
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.75))
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white.opacity(0.85))
                     }
-                    .frame(minWidth: 76)
-                    
-                    // Right: Settings Gear Button
-                    Button(action: {
-                        MenuBarManager.shared.showSettings()
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.white.opacity(0.08))
-                                .frame(width: 30, height: 30)
-                            
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.white.opacity(0.65))
-                        }
-                    }
-                    .buttonStyle(.plain)
                 }
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(Color.black.opacity(0.65))
-                    .background(
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(
+                .buttonStyle(.plain)
+                
+                // Sound-reactive Mini Equalizer
+                HStack(spacing: 2.5) {
+                    ForEach(0..<numDots, id: \.self) { index in
+                        ThemedEqualizerBar(index: index, level: appState.audioLevel, theme: themeManager.currentTheme)
+                    }
+                }
+                .frame(width: 38, height: 22)
+                
+                // Transparent Live Transcription Stream Area
+                HStack(spacing: 3) {
+                    if appState.currentTranscript.isEmpty {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(themeManager.currentTheme.primaryColor)
+                                .frame(width: 6, height: 6)
+                                .opacity(cursorBlink ? 1.0 : 0.3)
+                            
+                            Text("Listening...")
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                    } else {
+                        Text(appState.currentTranscript)
+                            .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                        
+                        Rectangle()
+                            .fill(themeManager.currentTheme.primaryColor)
+                            .frame(width: 1.8, height: 13)
+                            .opacity(cursorBlink ? 1.0 : 0.0)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6)
+                
+                // Right: Stop & Insert Button (■)
+                Button(action: {
+                    appState.stopListeningAndInject()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(
                                 LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.28),
-                                        themeManager.currentTheme.primaryColor.opacity(0.2),
-                                        Color.white.opacity(0.06)
-                                    ],
+                                    colors: [Color(red: 0.98, green: 0.38, blue: 0.38), Color(red: 0.88, green: 0.18, blue: 0.28)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
+                                )
                             )
-                    )
-                    .shadow(color: Color.black.opacity(0.55), radius: 20, x: 0, y: 8)
-            )
-            .frame(width: 190, height: 46)
+                            .frame(width: 28, height: 28)
+                            .shadow(color: Color.red.opacity(0.5), radius: 6)
+                        
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.white)
+                            .frame(width: 8.5, height: 8.5)
+                    }
+                }
+                .buttonStyle(.plain)
+                
+            } else if appState.showInjectedToast {
+                // ── 2. TOAST CONFIRMATION STATE ────────────────────────────
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 14, weight: .semibold))
+                    
+                    Text("Pasted (⌘V)")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity)
+                
+            } else {
+                // ── 3. SLEEK IDLE CAPSULE ──────────────────────────────────
+                // Left: Themed Glowing Mic
+                Button(action: {
+                    appState.startListening()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(themeManager.currentTheme.gradient)
+                            .frame(width: 28, height: 28)
+                            .shadow(color: themeManager.currentTheme.glowColor, radius: 6)
+                        
+                        Image(systemName: "mic.fill")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .buttonStyle(.plain)
+                
+                // Center: Hotkey Badge & Prompt
+                HStack(spacing: 5) {
+                    Text(hotkeyManager.selectedHotkey.badgeLabel)
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.95))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.white.opacity(0.12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+                                )
+                        )
+                    
+                    Text("Speak")
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.75))
+                }
+                .frame(minWidth: 74)
+                
+                // Right: Settings Gear Button
+                Button(action: {
+                    MenuBarManager.shared.showSettings()
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(width: 28, height: 28)
+                        
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundColor(.white.opacity(0.65))
+                    }
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .frame(
+            width: appState.isListening ? 380 : 184,
+            height: 42
+        )
+        .background(
+            Capsule()
+                .fill(Color.black.opacity(0.55))
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.32),
+                                    themeManager.currentTheme.primaryColor.opacity(appState.isListening ? 0.45 : 0.15),
+                                    Color.white.opacity(0.06)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(
+                    color: appState.isListening ? themeManager.currentTheme.glowColor.opacity(0.35) : Color.black.opacity(0.45),
+                    radius: appState.isListening ? 20 : 14,
+                    x: 0,
+                    y: 6
+                )
+        )
         .gesture(
             DragGesture(minimumDistance: 2)
                 .onChanged { _ in
@@ -228,9 +220,14 @@ public struct WisprPillView: View {
                     isDragging = false
                 }
         )
-        .animation(.spring(response: 0.28, dampingFraction: 0.8), value: appState.isListening)
-        .animation(.spring(response: 0.28, dampingFraction: 0.8), value: appState.showInjectedToast)
-        .animation(.easeInOut(duration: 0.15), value: appState.currentTranscript)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                cursorBlink.toggle()
+            }
+        }
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: appState.isListening)
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: appState.showInjectedToast)
+        .animation(.easeInOut(duration: 0.1), value: appState.currentTranscript)
     }
 }
 
@@ -241,13 +238,13 @@ struct ThemedEqualizerBar: View {
     
     var body: some View {
         let height: CGFloat = {
-            let base: CGFloat = 3.5
-            let wave = sin(Double(index) * 0.7 + Double(Date().timeIntervalSince1970 * 10)) * 0.5 + 0.5
-            let amp = CGFloat(level) * 18.0
-            return max(base, min(base + CGFloat(wave) * amp, 22.0))
+            let base: CGFloat = 3.0
+            let wave = sin(Double(index) * 0.8 + Double(Date().timeIntervalSince1970 * 12)) * 0.5 + 0.5
+            let amp = CGFloat(level) * 16.0
+            return max(base, min(base + CGFloat(wave) * amp, 18.0))
         }()
         
-        RoundedRectangle(cornerRadius: 2)
+        RoundedRectangle(cornerRadius: 1.5)
             .fill(
                 LinearGradient(
                     colors: [Color.white, theme.primaryColor],
@@ -255,7 +252,7 @@ struct ThemedEqualizerBar: View {
                     endPoint: .bottom
                 )
             )
-            .frame(width: 3.2, height: height)
+            .frame(width: 2.8, height: height)
             .animation(.easeInOut(duration: 0.06), value: level)
     }
 }
