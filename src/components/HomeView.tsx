@@ -166,9 +166,10 @@ const HomeView: Component = () => {
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: var(--space-6) var(--space-5);
-          gap: var(--space-5);
-          height: 100%;
+          width: 100%;
+          min-height: 100%;
+          gap: var(--space-4);
+          box-sizing: border-box;
         }
 
         .home-hero {
@@ -179,7 +180,7 @@ const HomeView: Component = () => {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: var(--space-4);
+          gap: var(--space-3);
         }
 
         .home-mic-label {
@@ -207,6 +208,30 @@ const HomeView: Component = () => {
           max-width: 320px;
         }
 
+        .transcript-area {
+          width: 100%;
+          min-height: 72px;
+          max-height: 120px;
+          overflow-y: auto;
+          box-sizing: border-box;
+          padding: var(--space-3) var(--space-4);
+          background: var(--color-bg-tertiary);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          font-size: var(--text-sm);
+          line-height: var(--leading-normal);
+          color: var(--color-text-primary);
+          word-break: break-word;
+        }
+
+        .transcript-placeholder {
+          color: var(--color-text-muted);
+          font-style: italic;
+          text-align: center;
+          padding: var(--space-4) 0;
+          font-size: var(--text-sm);
+        }
+
         .home-status {
           display: flex;
           align-items: center;
@@ -217,6 +242,8 @@ const HomeView: Component = () => {
           border-radius: var(--radius-md);
           border: 1px solid var(--color-border-subtle);
           margin-top: auto;
+          flex-shrink: 0;
+          box-sizing: border-box;
         }
       `}</style>
     </div>
