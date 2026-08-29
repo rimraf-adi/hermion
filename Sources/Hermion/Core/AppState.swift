@@ -11,10 +11,12 @@ public class AppState: ObservableObject {
     @Published public var historyItems: [TranscriptionItem] = []
     @Published public var isPushToTalk: Bool = false
     @Published public var languageIdentifier: String = "en-US"
+    @Published public var selectedEngine: ASREngineType = .apple
     @Published public var showInjectedToast: Bool = false
     
     public let audioManager = AudioEngineManager()
     public let speechRecognizer = SpeechRecognizer()
+    public let moonshineEngine = MoonshineEngine.shared
     
     private var cancellables = Set<AnyCancellable>()
     private var startTime: Date?
@@ -25,18 +27,33 @@ public class AppState: ObservableObject {
     private init() {
         self.historyItems = HistoryStorage.shared.loadHistory()
         
+        if let savedEngine = UserDefaults.standard.string(forKey: "Hermion_ASREngine"),
+           let engine = ASREngineType(rawValue: savedEngine) {
+            self.selectedEngine = engine
+        }
+        
         // Link audio manager levels to state
         audioManager.$audioLevel
             .receive(on: DispatchQueue.main)
             .assign(to: \.audioLevel, on: self)
             .store(in: &cancellables)
         
-        // Setup audio buffer forwarding to speech recognizer
+        // Setup audio buffer forwarding
         audioManager.onBuffer = { [weak self] buffer, _ in
-            self?.speechRecognizer.appendAudioBuffer(buffer)
+            guard let self = self else { return }
+            if self.selectedEngine == .apple {
+                self.speechRecognizer.appendAudioBuffer(buffer)
+            } else {
+                self.moonshineEngine.appendAudioBuffer(buffer)
+            }
         }
         
         setupHotkeys()
+    }
+    
+    public func setEngine(_ engine: ASREngineType) {
+        self.selectedEngine = engine
+        UserDefaults.standard.set(engine.rawValue, forKey: "Hermion_ASREngine")
     }
     
     private func setupHotkeys() {
@@ -72,25 +89,36 @@ public class AppState: ObservableObject {
         audioManager.requestMicrophonePermission { [weak self] micGranted in
             guard let self = self, micGranted else { return }
             
-            self.speechRecognizer.requestSpeechPermission { [weak self] speechGranted in
-                guard let self = self, speechGranted else { return }
-                
-                do {
-                    self.currentTranscript = ""
-                    self.startTime = Date()
-                    self.isListening = true
-                    
-                    try self.speechRecognizer.startRecognition { [weak self] partial in
-                        self?.currentTranscript = partial
-                    }
-                    try self.audioManager.start()
-                    
-                    self.onShowOverlay?()
-                } catch {
-                    print("Failed to start listening: \(error)")
-                    self.isListening = false
+            if self.selectedEngine == .apple {
+                self.speechRecognizer.requestSpeechPermission { [weak self] speechGranted in
+                    guard let self = self, speechGranted else { return }
+                    self.beginAudioAndRecognition()
                 }
+            } else {
+                self.beginAudioAndRecognition()
             }
+        }
+    }
+    
+    private func beginAudioAndRecognition() {
+        do {
+            self.currentTranscript = ""
+            self.startTime = Date()
+            self.isListening = true
+            
+            if selectedEngine == .apple {
+                try self.speechRecognizer.startRecognition { [weak self] partial in
+                    self?.currentTranscript = partial
+                }
+            } else {
+                self.moonshineEngine.startSession()
+            }
+            
+            try self.audioManager.start()
+            self.onShowOverlay?()
+        } catch {
+            print("Failed to start listening: \(error)")
+            self.isListening = false
         }
     }
     
@@ -98,7 +126,16 @@ public class AppState: ObservableObject {
         guard isListening else { return }
         
         audioManager.stop()
-        let final = speechRecognizer.stopRecognition()
+        
+        let final: String
+        if selectedEngine == .apple {
+            final = speechRecognizer.stopRecognition()
+        } else {
+            final = moonshineEngine.finishSession { [weak self] partial in
+                self?.currentTranscript = partial
+            }
+        }
+        
         let duration = startTime.map { Date().timeIntervalSince($0) } ?? 0.0
         
         isListening = false
@@ -127,7 +164,11 @@ public class AppState: ObservableObject {
         guard isListening else { return }
         
         audioManager.stop()
-        speechRecognizer.cancelRecognition()
+        if selectedEngine == .apple {
+            speechRecognizer.cancelRecognition()
+        } else {
+            moonshineEngine.cancelSession()
+        }
         isListening = false
         currentTranscript = ""
         onHideOverlay?()

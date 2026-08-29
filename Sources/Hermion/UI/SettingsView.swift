@@ -11,6 +11,38 @@ public struct SettingsView: View {
     
     public var body: some View {
         Form {
+            Section(header: Text("Speech Recognition Engine").font(.headline)) {
+                Picker("Voice Engine", selection: $appState.selectedEngine) {
+                    ForEach(ASREngineType.allCases) { engine in
+                        Text(engine.rawValue).tag(engine)
+                    }
+                }
+                .onChange(of: appState.selectedEngine) { newEngine in
+                    appState.setEngine(newEngine)
+                }
+                
+                Text(appState.selectedEngine.description)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                if appState.selectedEngine != .apple {
+                    HStack {
+                        Image(systemName: "moon.stars.fill")
+                            .foregroundColor(.purple)
+                        Text("Moonshine ASR Engine active")
+                            .font(.caption2)
+                            .foregroundColor(.purple)
+                        Spacer()
+                        Text("100% On-Device")
+                            .font(.caption2)
+                            .foregroundColor(.green)
+                    }
+                    .padding(6)
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(6)
+                }
+            }
+            
             Section(header: Text("General & Hotkeys").font(.headline)) {
                 Toggle("Push-to-Talk Mode (Hold F5 to speak)", isOn: $appState.isPushToTalk)
                     .help("When enabled, hold F5 to speak and release to inject. When disabled, press F5 once to start, again to stop.")
@@ -84,13 +116,13 @@ public struct SettingsView: View {
                     Text("v1.0.0 Native")
                         .foregroundColor(.gray)
                 }
-                Text("Zero cloud calls • On-device Apple Silicon neural speech recognition • Wispr Flow floating overlay")
+                Text("Zero cloud calls • On-device Apple Silicon neural speech & Moonshine ASR • Wispr Flow floating overlay")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 400)
+        .frame(width: 440, height: 480)
         .onAppear {
             isAccessibilityOk = TextInjector.isAccessibilityGranted()
         }
