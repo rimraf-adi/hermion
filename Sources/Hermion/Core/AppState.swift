@@ -11,6 +11,7 @@ public class AppState: ObservableObject {
     @Published public var historyItems: [TranscriptionItem] = []
     @Published public var isPushToTalk: Bool = false
     @Published public var languageIdentifier: String = "en-US"
+    @Published public var showInjectedToast: Bool = false
     
     public let audioManager = AudioEngineManager()
     public let speechRecognizer = SpeechRecognizer()
@@ -112,6 +113,11 @@ public class AppState: ObservableObject {
             
             // Inject text into frontmost application
             TextInjector.injectViaPasteboard(textToInject)
+            
+            self.showInjectedToast = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.showInjectedToast = false
+            }
         }
         
         self.currentTranscript = ""

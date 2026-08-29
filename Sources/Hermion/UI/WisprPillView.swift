@@ -75,6 +75,18 @@ public struct WisprPillView: View {
                     }
                     .buttonStyle(.plain)
                     
+                } else if appState.showInjectedToast {
+                    // ── TOAST CONFIRMATION STATE ────────────────────
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.system(size: 14))
+                        Text("Pasted (⌘V)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity)
+                    
                 } else {
                     // ── IDLE / READY STATE ──────────────────────────
                     // Left: Start Dictation Button (Purple/Violet Circle with Mic)
@@ -141,6 +153,7 @@ public struct WisprPillView: View {
             .frame(width: 184, height: 44)
         }
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: appState.isListening)
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: appState.showInjectedToast)
         .animation(.easeInOut(duration: 0.15), value: appState.currentTranscript)
     }
 }

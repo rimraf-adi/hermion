@@ -52,5 +52,8 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
 </plist>
 EOF
 
-echo "✅ Hermion.app successfully built!"
+echo "🔏 Signing Hermion.app bundle..."
+codesign --force --deep --sign - "$APP_DIR"
+
+echo "✅ Hermion.app successfully built & signed!"
 echo "🚀 Run with: open Hermion.app"

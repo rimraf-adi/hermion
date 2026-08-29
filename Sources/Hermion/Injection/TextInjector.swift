@@ -13,57 +13,43 @@ public struct TextInjector {
         _ = AXIsProcessTrustedWithOptions(options)
     }
     
-    /// Inject text into the frontmost application via Pasteboard + Cmd+V with auto clipboard restoration
+    /// Inject text into the frontmost application via Pasteboard + multi-strategy Cmd+V paste
     public static func injectViaPasteboard(_ text: String) {
         guard !text.isEmpty else { return }
         
         let pasteboard = NSPasteboard.general
-        let previousString = pasteboard.string(forType: .string)
         
-        // Always place the transcribed text on the pasteboard
+        // 1. Copy transcription to system pasteboard
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
         
-        // Check if Accessibility is trusted
-        if !isAccessibilityGranted() {
-            print("⚠️ macOS Accessibility permission not granted. Prompting user...")
-            promptAccessibilityPermission()
-            // Keep text in clipboard so user can press Cmd+V manually
-            return
-        }
+        // 2. Multi-Strategy Emulation of Cmd+V
         
-        // Emulate Cmd+V (Command + V)
+        // Strategy A: CGEvent synthetic keypress
         let source = CGEventSource(stateID: .combinedSessionState)
         let vKeyCode: CGKeyCode = 9 // ANSI V
         
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) else {
-            print("Failed to create CGEvent for Cmd+V")
-            return
+        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
+           let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) {
+            keyDown.flags = .maskCommand
+            keyUp.flags = .maskCommand
+            
+            keyDown.post(tap: .cghidEventTap)
+            keyUp.post(tap: .cghidEventTap)
         }
         
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
-        
-        // Restore original clipboard contents after 300ms to allow target app to paste
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) {
-            if let prev = previousString {
-                pasteboard.clearContents()
-                pasteboard.setString(prev, forType: .string)
+        // Strategy B: AppleScript System Events fallback
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+            let scriptSource = "tell application \"System Events\" to keystroke \"v\" using command down"
+            if let script = NSAppleScript(source: scriptSource) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
             }
         }
     }
     
     /// Fallback: Inject via direct unicode keystrokes
     public static func injectViaKeystrokes(_ text: String) {
-        if !isAccessibilityGranted() {
-            promptAccessibilityPermission()
-            return
-        }
-        
         let source = CGEventSource(stateID: .combinedSessionState)
         
         for char in text.utf16 {
