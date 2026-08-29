@@ -1,11 +1,20 @@
 import { Component, Match, onMount, Switch } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
-import { currentView, setCurrentView, setIsListening, setPartialText, setFinalText } from "./stores/app-store";
+import {
+  currentView,
+  setCurrentView,
+  setIsListening,
+  setPartialText,
+  setFinalText,
+  setIsSidecarReady,
+  setIsVadSpeech,
+} from "./stores/app-store";
 import HomeView from "./components/HomeView";
 import SettingsView from "./components/SettingsView";
 import HistoryView from "./components/HistoryView";
 import Onboarding from "./components/Onboarding";
-import { isFirstRun } from "./lib/tauri-bridge";
+import OverlayView from "./components/OverlayView";
+import { isFirstRun, getSettings, injectText, addHistoryEntry } from "./lib/tauri-bridge";
 import "./styles/index.css";
 
 const MicNavIcon = () => (
@@ -31,7 +40,11 @@ const SettingsNavIcon = () => (
 );
 
 const App: Component = () => {
+  const isOverlay = window.location.hash.includes("overlay");
+
   onMount(async () => {
+    if (isOverlay) return;
+
     // Check if first run
     try {
       const firstRun = await isFirstRun();
@@ -47,11 +60,50 @@ const App: Component = () => {
       setIsListening(event.payload as boolean);
     });
 
+    listen("transcription-partial", (event) => {
+      setPartialText(event.payload as string);
+    });
+
+    listen("transcription-final", async (event) => {
+      const text = event.payload as string;
+      setFinalText(text);
+      setPartialText("");
+
+      if (text && text.trim() && !text.startsWith("[")) {
+        try {
+          const appSettings = await getSettings();
+          await injectText(text, appSettings.inject_method);
+          await addHistoryEntry({
+            id: 0,
+            text,
+            raw_text: text,
+            duration_ms: 0,
+            latency_ms: 0,
+            confidence: 0.95,
+            model_id: appSettings.model_id,
+            language: appSettings.language,
+            created_at: new Date().toISOString(),
+            app_context: "active-window",
+          });
+        } catch (err) {
+          console.error("Auto-inject or history save failed:", err);
+        }
+      }
+    });
+
+    listen("sidecar-ready", (event) => {
+      setIsSidecarReady(event.payload as boolean);
+    });
+
+    listen("vad-speech", (event) => {
+      setIsVadSpeech(event.payload as boolean);
+    });
+
     listen("hotkey-pressed", (event) => {
       // Handle push-to-talk hotkey events
       const pressed = event.payload as boolean;
       if (pressed) {
-        // Will be handled by HomeView
+        // Handled by HomeView
       }
     });
 
@@ -66,6 +118,10 @@ const App: Component = () => {
       else setCurrentView("home");
     });
   });
+
+  if (isOverlay) {
+    return <OverlayView />;
+  }
 
   return (
     <div class="app-container">

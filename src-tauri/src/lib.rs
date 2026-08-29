@@ -3,10 +3,12 @@ mod commands;
 mod db;
 mod injection;
 mod models;
+mod sidecar;
 
 use audio::AudioCapture;
 use db::Database;
 use models::AppState;
+use sidecar::SidecarManager;
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -18,6 +20,7 @@ use tauri::{
 pub struct AppStateManager {
     pub db: Database,
     pub audio: Mutex<AudioCapture>,
+    pub sidecar: Mutex<SidecarManager>,
     pub app_state: Mutex<AppState>,
 }
 
@@ -41,10 +44,17 @@ pub fn run() {
             // Load settings
             let settings = db.load_settings().unwrap_or_default();
 
+            // Initialize sidecar manager
+            let mut sidecar_mgr = SidecarManager::new();
+            if let Err(e) = sidecar_mgr.spawn(app.handle().clone()) {
+                log::warn!("Sidecar not spawned immediately (will attempt on demand): {}", e);
+            }
+
             // Create shared state
             let state = AppStateManager {
                 db,
                 audio: Mutex::new(AudioCapture::new()),
+                sidecar: Mutex::new(sidecar_mgr),
                 app_state: Mutex::new(AppState {
                     is_listening: false,
                     is_sidecar_ready: false,

@@ -23,6 +23,8 @@ Thumbs.db
 # Tauri
 src-tauri/gen/
 src-tauri/target/
+src-tauri/bin/*
+!src-tauri/bin/.gitkeep
 
 # Sidecar
 src-sidecar/target/

@@ -24,6 +24,18 @@ pub fn start_listening(
 ) -> Result<(), String> {
     let settings = state.db.load_settings().map_err(|e| e.to_string())?;
 
+    // Send start to sidecar
+    {
+        let sidecar = state.sidecar.lock().unwrap();
+        let _ = sidecar.send_command(&crate::models::SidecarCommand::Start {
+            config: crate::models::SidecarConfig {
+                model: settings.model_id.clone(),
+                language: settings.language.clone(),
+                vad_threshold: settings.vad_threshold,
+            },
+        });
+    }
+
     // Start audio capture
     state
         .audio
@@ -72,7 +84,7 @@ pub fn stop_listening(
     // Emit state change
     app_handle.emit("listening-state-changed", false).ok();
 
-    // If we have audio data, encode it
+    // If we have audio data, encode and forward to sidecar
     if !audio_data.is_empty() {
         let bytes: Vec<u8> = audio_data
             .iter()
@@ -80,11 +92,25 @@ pub fn stop_listening(
             .collect();
         let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
         log::info!(
-            "Captured {} samples ({} bytes)",
+            "Captured {} samples ({} bytes), forwarding to sidecar",
             audio_data.len(),
             bytes.len()
         );
+
+        let sidecar = state.sidecar.lock().unwrap();
+        let _ = sidecar.send_command(&crate::models::SidecarCommand::Audio {
+            data: encoded.clone(),
+            timestamp_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0),
+        });
+        let _ = sidecar.send_command(&crate::models::SidecarCommand::Stop);
+
         return Ok(encoded);
+    } else {
+        let sidecar = state.sidecar.lock().unwrap();
+        let _ = sidecar.send_command(&crate::models::SidecarCommand::Stop);
     }
 
     Ok(String::new())
