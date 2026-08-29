@@ -2,19 +2,23 @@ import Foundation
 import AppKit
 
 public enum HotkeyOption: String, CaseIterable, Identifiable {
-    case f5 = "F5 (Function 5)"
+    case rightShift = "Right Shift Key (⇧)"
+    case doubleShift = "Double Tap Shift (⇧ ⇧)"
+    case shiftSpace = "Shift + Space (⇧ Space)"
     case optionSpace = "Option + Space (⌥ Space)"
     case controlSpace = "Control + Space (⌃ Space)"
-    case rightOption = "Right Option Key (⌥)"
+    case f5 = "F5 (Function 5)"
     
     public var id: String { self.rawValue }
     
     public var badgeLabel: String {
         switch self {
-        case .f5: return "F5"
+        case .rightShift: return "Right ⇧"
+        case .doubleShift: return "⇧ ⇧"
+        case .shiftSpace: return "⇧ Space"
         case .optionSpace: return "⌥ Space"
         case .controlSpace: return "⌃ Space"
-        case .rightOption: return "Right ⌥"
+        case .f5: return "F5"
         }
     }
 }
@@ -22,12 +26,13 @@ public enum HotkeyOption: String, CaseIterable, Identifiable {
 public class HotkeyManager: ObservableObject {
     public static let shared = HotkeyManager()
     
-    @Published public var selectedHotkey: HotkeyOption = .f5
+    @Published public var selectedHotkey: HotkeyOption = .rightShift
     
     private var globalKeyDownMonitor: Any?
     private var globalKeyUpMonitor: Any?
     private var globalFlagsMonitor: Any?
     private var localKeyDownMonitor: Any?
+    private var localFlagsMonitor: Any?
     
     public var onHotkeyDown: (() -> Void)?
     public var onHotkeyUp: (() -> Void)?
@@ -35,6 +40,7 @@ public class HotkeyManager: ObservableObject {
     public var onCancel: (() -> Void)?
     
     private var isKeyDown = false
+    private var lastShiftPressTime: Date = Date.distantPast
     
     private init() {
         if let saved = UserDefaults.standard.string(forKey: "Hermion_SelectedHotkey"),
@@ -52,26 +58,32 @@ public class HotkeyManager: ObservableObject {
     public func startMonitoring() {
         stopMonitoring()
         
-        // 1. Global Monitor for Key Down (when outside Hermion)
+        // 1. Global Key Down
         globalKeyDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleKeyEvent(event, isDown: true)
         }
         
-        // 2. Global Monitor for Key Up
+        // 2. Global Key Up
         globalKeyUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyUp) { [weak self] event in
             self?.handleKeyEvent(event, isDown: false)
         }
         
-        // 3. Flags monitor for modifier-only keys (Right Option)
+        // 3. Global Flags Monitor (for Shift and modifier keys)
         globalFlagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             self?.handleFlagsEvent(event)
         }
         
-        // 4. Local Monitor (when Hermion window has focus)
+        // 4. Local Key Down
         localKeyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if self?.shouldInterceptLocalEvent(event) == true {
-                return nil // consume event
+                return nil
             }
+            return event
+        }
+        
+        // 5. Local Flags Monitor
+        localFlagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.handleFlagsEvent(event)
             return event
         }
     }
@@ -80,15 +92,15 @@ public class HotkeyManager: ObservableObject {
         let keyCode = event.keyCode
         let flags = event.modifierFlags
         
-        // Check Escape key (KeyCode 53) to cancel when listening
-        if isDown && keyCode == 53 {
+        // Escape (53) to cancel
+        if isDown && keyCode == 53 && AppState.shared.isListening {
             DispatchQueue.main.async {
                 self.onCancel?()
             }
             return
         }
         
-        // Check Enter/Return key (KeyCode 36) to finish and paste when listening
+        // Enter / Return (36) to finish & paste
         if isDown && keyCode == 36 && AppState.shared.isListening {
             DispatchQueue.main.async {
                 self.onHotkeyDown?()
@@ -96,15 +108,17 @@ public class HotkeyManager: ObservableObject {
             return
         }
         
-        let matches: Bool
+        var matches = false
         switch selectedHotkey {
-        case .f5:
-            matches = (keyCode == 96) // F5
+        case .shiftSpace:
+            matches = (keyCode == 49 && flags.contains(.shift))
         case .optionSpace:
-            matches = (keyCode == 49 && flags.contains(.option)) // Option+Space
+            matches = (keyCode == 49 && flags.contains(.option))
         case .controlSpace:
-            matches = (keyCode == 49 && flags.contains(.control)) // Control+Space
-        case .rightOption:
+            matches = (keyCode == 49 && flags.contains(.control))
+        case .f5:
+            matches = (keyCode == 96)
+        case .rightShift, .doubleShift:
             matches = false // Handled in flagsChanged
         }
         
@@ -124,19 +138,41 @@ public class HotkeyManager: ObservableObject {
     }
     
     private func handleFlagsEvent(_ event: NSEvent) {
-        guard selectedHotkey == .rightOption else { return }
+        let keyCode = event.keyCode
+        let isShiftActive = event.modifierFlags.contains(.shift)
         
-        // Right Option key code is typically 61
-        let isOptionPressed = event.modifierFlags.contains(.option)
-        if isOptionPressed && !isKeyDown {
-            isKeyDown = true
-            DispatchQueue.main.async {
-                self.onHotkeyDown?()
+        // Handle Right Shift (KeyCode 60 on macOS)
+        if selectedHotkey == .rightShift {
+            // Right Shift keyCode is 60 on standard Mac keyboards
+            if keyCode == 60 || (isShiftActive && keyCode != 56) {
+                if isShiftActive && !isKeyDown {
+                    isKeyDown = true
+                    DispatchQueue.main.async {
+                        self.onHotkeyDown?()
+                    }
+                } else if !isShiftActive && isKeyDown {
+                    isKeyDown = false
+                    DispatchQueue.main.async {
+                        self.onHotkeyUp?()
+                    }
+                }
             }
-        } else if !isOptionPressed && isKeyDown {
-            isKeyDown = false
-            DispatchQueue.main.async {
-                self.onHotkeyUp?()
+        }
+        
+        // Handle Double Tap Shift
+        if selectedHotkey == .doubleShift {
+            if isShiftActive {
+                let now = Date()
+                let interval = now.timeIntervalSince(lastShiftPressTime)
+                if interval > 0.05 && interval < 0.40 {
+                    // Double tap detected!
+                    lastShiftPressTime = Date.distantPast
+                    DispatchQueue.main.async {
+                        self.onHotkeyDown?()
+                    }
+                } else {
+                    lastShiftPressTime = now
+                }
             }
         }
     }
@@ -167,6 +203,10 @@ public class HotkeyManager: ObservableObject {
         if let monitor = localKeyDownMonitor {
             NSEvent.removeMonitor(monitor)
             localKeyDownMonitor = nil
+        }
+        if let monitor = localFlagsMonitor {
+            NSEvent.removeMonitor(monitor)
+            localFlagsMonitor = nil
         }
         isKeyDown = false
     }
