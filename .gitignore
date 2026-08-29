@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+target/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tauri
+src-tauri/gen/
+src-tauri/target/
+
+# Sidecar
+src-sidecar/target/
+
+# Models (downloaded at runtime, too large for git)
+models/
+*.onnx
+
+# Database
+*.db
+*.db-journal

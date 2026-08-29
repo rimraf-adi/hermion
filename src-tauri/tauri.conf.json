@@ -1,0 +1,76 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hermion",
+  "version": "0.1.0",
+  "identifier": "com.hermion.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Hermion",
+        "width": 420,
+        "height": 680,
+        "resizable": true,
+        "visible": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false
+      },
+      {
+        "label": "overlay",
+        "title": "Hermion Overlay",
+        "width": 480,
+        "height": 72,
+        "resizable": false,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "center": true,
+        "url": "index.html#/overlay"
+      }
+    ],
+    "trayIcon": {
+      "id": "hermion-tray",
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "tooltip": "Hermion — Voice Keyboard"
+    },
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    }
+  },
+  "plugins": {
+    "shell": {
+      "scope": [
+        {
+          "name": "hermion-sidecar",
+          "cmd": "",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
+  }
+}
