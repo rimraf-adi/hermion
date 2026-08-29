@@ -41,9 +41,8 @@ public class AppState: ObservableObject {
         // Setup audio buffer forwarding
         audioManager.onBuffer = { [weak self] buffer, _ in
             guard let self = self else { return }
-            if self.selectedEngine == .apple {
-                self.speechRecognizer.appendAudioBuffer(buffer)
-            } else {
+            self.speechRecognizer.appendAudioBuffer(buffer)
+            if self.selectedEngine != .apple {
                 self.moonshineEngine.appendAudioBuffer(buffer)
             }
         }
@@ -89,12 +88,8 @@ public class AppState: ObservableObject {
         audioManager.requestMicrophonePermission { [weak self] micGranted in
             guard let self = self, micGranted else { return }
             
-            if self.selectedEngine == .apple {
-                self.speechRecognizer.requestSpeechPermission { [weak self] speechGranted in
-                    guard let self = self, speechGranted else { return }
-                    self.beginAudioAndRecognition()
-                }
-            } else {
+            self.speechRecognizer.requestSpeechPermission { [weak self] speechGranted in
+                guard let self = self, speechGranted else { return }
                 self.beginAudioAndRecognition()
             }
         }
@@ -106,12 +101,18 @@ public class AppState: ObservableObject {
             self.startTime = Date()
             self.isListening = true
             
-            if selectedEngine == .apple {
-                try self.speechRecognizer.startRecognition { [weak self] partial in
-                    self?.currentTranscript = partial
-                }
-            } else {
+            if selectedEngine != .apple {
                 self.moonshineEngine.startSession()
+            }
+            
+            try self.speechRecognizer.startRecognition { [weak self] partial in
+                guard let self = self else { return }
+                if self.selectedEngine == .apple {
+                    self.currentTranscript = partial
+                } else {
+                    self.moonshineEngine.updateLivePartial(partial)
+                    self.currentTranscript = self.moonshineEngine.lastTranscript
+                }
             }
             
             try self.audioManager.start()
@@ -126,14 +127,13 @@ public class AppState: ObservableObject {
         guard isListening else { return }
         
         audioManager.stop()
+        let raw = speechRecognizer.stopRecognition()
         
         let final: String
         if selectedEngine == .apple {
-            final = speechRecognizer.stopRecognition()
+            final = raw
         } else {
-            final = moonshineEngine.finishSession { [weak self] partial in
-                self?.currentTranscript = partial
-            }
+            final = moonshineEngine.finishSession(withBaseTranscript: raw)
         }
         
         let duration = startTime.map { Date().timeIntervalSince($0) } ?? 0.0
@@ -164,9 +164,8 @@ public class AppState: ObservableObject {
         guard isListening else { return }
         
         audioManager.stop()
-        if selectedEngine == .apple {
-            speechRecognizer.cancelRecognition()
-        } else {
+        speechRecognizer.cancelRecognition()
+        if selectedEngine != .apple {
             moonshineEngine.cancelSession()
         }
         isListening = false

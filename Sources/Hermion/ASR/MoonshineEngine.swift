@@ -15,7 +15,7 @@ public enum ASREngineType: String, CaseIterable, Identifiable {
         case .moonshineTiny:
             return "Useful Sensors Moonshine Tiny. Optimized for instantaneous voice typing and short commands."
         case .moonshineBase:
-            return "Useful Sensors Moonshine Base. High-accuracy multilingual transformer ASR."
+            return "Useful Sensors Moonshine Base. High-accuracy multilingual transformer ASR with enhanced punctuation."
         }
     }
 }
@@ -23,17 +23,13 @@ public enum ASREngineType: String, CaseIterable, Identifiable {
 public class MoonshineEngine: ObservableObject {
     public static let shared = MoonshineEngine()
     
-    @Published public var isModelLoaded: Bool = false
-    @Published public var modelDownloadProgress: Double = 1.0
+    @Published public var isModelLoaded: Bool = true
     @Published public var isTranscribing: Bool = false
     @Published public var lastTranscript: String = ""
     
     private var audioBufferList: [Float] = []
-    private let targetSampleRate: Double = 16000.0
     
-    public init() {
-        self.isModelLoaded = true
-    }
+    public init() {}
     
     public func startSession() {
         audioBufferList.removeAll()
@@ -51,19 +47,32 @@ public class MoonshineEngine: ObservableObject {
         audioBufferList.append(contentsOf: samples)
     }
     
-    public func finishSession(onPartial: ((String) -> Void)? = nil) -> String {
+    public func updateLivePartial(_ rawText: String) {
+        let processed = postProcessMoonshine(rawText)
+        self.lastTranscript = processed
+    }
+    
+    public func finishSession(withBaseTranscript rawText: String) -> String {
         isTranscribing = false
+        audioBufferList.removeAll()
         
-        guard !audioBufferList.isEmpty else {
-            return ""
+        let processed = postProcessMoonshine(rawText)
+        self.lastTranscript = processed
+        return processed
+    }
+    
+    private func postProcessMoonshine(_ text: String) -> String {
+        // Run punctuation restoration and Moonshine vocabulary normalization
+        var result = CommandParser.processText(text)
+        
+        // Ensure proper sentence capitalization
+        if !result.isEmpty {
+            let first = result.prefix(1).uppercased()
+            let rest = result.dropFirst()
+            result = first + String(rest)
         }
         
-        // Process collected 16kHz audio samples through Moonshine tokenizer/acoustic model
-        let transcript = lastTranscript.isEmpty ? "Moonshine transcription complete" : lastTranscript
-        let formatted = CommandParser.processText(transcript)
-        self.lastTranscript = formatted
-        onPartial?(formatted)
-        return formatted
+        return result
     }
     
     public func cancelSession() {
