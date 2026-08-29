@@ -143,6 +143,8 @@ pub fn run() {
             commands::delete_history_entry,
             commands::clear_history,
             commands::get_app_state,
+            commands::get_sidecar_status,
+            commands::restart_sidecar,
             commands::is_first_run,
         ])
         .run(tauri::generate_context!())

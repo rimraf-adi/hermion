@@ -12,11 +12,26 @@ pub struct SidecarManager {
     child: Option<Child>,
     stdin_tx: Option<std::sync::mpsc::Sender<String>>,
     is_ready: Arc<Mutex<bool>>,
+    model_name: Arc<Mutex<String>>,
+    gpu_available: Arc<Mutex<bool>>,
+    memory_mb: Arc<Mutex<u64>>,
+    last_log: Arc<Mutex<String>>,
 }
 
 // Safety: Child is managed internally with synchronization
 unsafe impl Send for SidecarManager {}
 unsafe impl Sync for SidecarManager {}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct SidecarStatusInfo {
+    pub is_ready: bool,
+    pub is_running: bool,
+    pub model_name: String,
+    pub gpu_available: bool,
+    pub memory_mb: u64,
+    pub pid: Option<u32>,
+    pub last_log: String,
+}
 
 impl SidecarManager {
     pub fn new() -> Self {
@@ -24,28 +39,49 @@ impl SidecarManager {
             child: None,
             stdin_tx: None,
             is_ready: Arc::new(Mutex::new(false)),
+            model_name: Arc::new(Mutex::new("moonshine-base-en".to_string())),
+            gpu_available: Arc::new(Mutex::new(false)),
+            memory_mb: Arc::new(Mutex::new(0)),
+            last_log: Arc::new(Mutex::new("Not started".to_string())),
         }
     }
 
     /// Spawn the Moonshine inference sidecar process and begin event reading loop
     pub fn spawn(&mut self, app_handle: AppHandle) -> Result<()> {
-        info!("Spawning hermion-sidecar process...");
-
-        // Look for sidecar binary in standard Tauri externalBin paths or development builds
         let sidecar_exe = find_sidecar_executable()?;
-        info!("Found sidecar at: {:?}", sidecar_exe);
+        info!("Spawning hermion-sidecar at: {:?}", sidecar_exe);
 
-        let mut child = Command::new(sidecar_exe)
+        emit_app_log(
+            &app_handle,
+            "SIDECAR",
+            &format!("Spawning binary from {:?}", sidecar_exe),
+            "info",
+        );
+
+        let mut child = Command::new(&sidecar_exe)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to spawn sidecar: {}", e))?;
+
+        let pid = child.id();
+        emit_app_log(
+            &app_handle,
+            "SIDECAR",
+            &format!("Process spawned successfully (PID: {})", pid),
+            "info",
+        );
 
         let stdout = child
             .stdout
             .take()
             .ok_or_else(|| anyhow::anyhow!("Failed to open sidecar stdout"))?;
+
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("Failed to open sidecar stderr"))?;
 
         let mut stdin = child
             .stdin
@@ -55,11 +91,13 @@ impl SidecarManager {
         let (tx, rx) = std::sync::mpsc::channel::<String>();
         self.stdin_tx = Some(tx);
 
+        let app_handle_stdin = app_handle.clone();
         // Stdin writing thread
         thread::spawn(move || {
             while let Ok(line) = rx.recv() {
                 if let Err(e) = writeln!(stdin, "{}", line) {
                     error!("Error writing to sidecar stdin: {}", e);
+                    emit_app_log(&app_handle_stdin, "SIDECAR", &format!("Stdin write error: {}", e), "error");
                     break;
                 }
                 if let Err(e) = stdin.flush() {
@@ -70,7 +108,24 @@ impl SidecarManager {
         });
 
         let is_ready = self.is_ready.clone();
+        let _model_name = self.model_name.clone();
+        let gpu_available = self.gpu_available.clone();
+        let memory_mb = self.memory_mb.clone();
+        let last_log = self.last_log.clone();
         let app_handle_clone = app_handle.clone();
+
+        // Stderr logging thread
+        let app_handle_stderr = app_handle.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                if let Ok(l) = line {
+                    if !l.trim().is_empty() {
+                        emit_app_log(&app_handle_stderr, "SIDECAR_STDERR", &l, "debug");
+                    }
+                }
+            }
+        });
 
         // Stdout reading thread
         thread::spawn(move || {
@@ -82,39 +137,67 @@ impl SidecarManager {
                         if trimmed.is_empty() {
                             continue;
                         }
+                        *last_log.lock().unwrap() = trimmed.to_string();
+                        emit_app_log(&app_handle_clone, "SIDECAR_RAW", trimmed, "debug");
+
                         match serde_json::from_str::<SidecarEvent>(trimmed) {
                             Ok(event) => match event {
                                 SidecarEvent::Ready => {
                                     info!("Sidecar is ready");
                                     *is_ready.lock().unwrap() = true;
                                     app_handle_clone.emit("sidecar-ready", true).ok();
+                                    emit_app_log(
+                                        &app_handle_clone,
+                                        "SIDECAR",
+                                        "Moonshine engine initialized & ready for inference",
+                                        "success",
+                                    );
                                 }
-                                SidecarEvent::Partial { text, is_final, latency_ms } => {
+                                SidecarEvent::Partial { text, is_final: _, latency_ms } => {
                                     app_handle_clone.emit("transcription-partial", &text).ok();
-                                    log::debug!("Partial ({}ms, final={}): {}", latency_ms, is_final, text);
+                                    emit_app_log(
+                                        &app_handle_clone,
+                                        "ASR_PARTIAL",
+                                        &format!("[{}ms] {}", latency_ms, text),
+                                        "info",
+                                    );
                                 }
                                 SidecarEvent::Final { text, confidence, latency_ms } => {
                                     app_handle_clone.emit("transcription-final", &text).ok();
-                                    info!("Final ({}ms, conf={:.2}): {}", latency_ms, confidence, text);
+                                    emit_app_log(
+                                        &app_handle_clone,
+                                        "ASR_FINAL",
+                                        &format!("[{}ms, conf {:.1}%] {}", latency_ms, confidence * 100.0, text),
+                                        "success",
+                                    );
                                 }
                                 SidecarEvent::Vad { is_speech } => {
                                     app_handle_clone.emit("vad-speech", is_speech).ok();
                                 }
-                                SidecarEvent::Status { model_loaded, gpu_available, memory_mb } => {
+                                SidecarEvent::Status { model_loaded, gpu_available: gpu, memory_mb: mem } => {
+                                    *gpu_available.lock().unwrap() = gpu;
+                                    *memory_mb.lock().unwrap() = mem;
                                     app_handle_clone
                                         .emit(
                                             "sidecar-status",
                                             serde_json::json!({
                                                 "model_loaded": model_loaded,
-                                                "gpu_available": gpu_available,
-                                                "memory_mb": memory_mb
+                                                "gpu_available": gpu,
+                                                "memory_mb": mem
                                             }),
                                         )
                                         .ok();
+                                    emit_app_log(
+                                        &app_handle_clone,
+                                        "STATUS",
+                                        &format!("Model loaded: {}, GPU acceleration: {}, Memory: {} MB", model_loaded, gpu, mem),
+                                        "info",
+                                    );
                                 }
                                 SidecarEvent::Error { message } => {
                                     error!("Sidecar error: {}", message);
                                     app_handle_clone.emit("sidecar-error", &message).ok();
+                                    emit_app_log(&app_handle_clone, "SIDECAR_ERR", &message, "error");
                                 }
                             },
                             Err(e) => {
@@ -124,16 +207,28 @@ impl SidecarManager {
                     }
                     Err(e) => {
                         error!("Error reading from sidecar stdout: {}", e);
+                        emit_app_log(&app_handle_clone, "SIDECAR", &format!("Stdout EOF/Error: {}", e), "warn");
                         break;
                     }
                 }
             }
             *is_ready.lock().unwrap() = false;
             app_handle_clone.emit("sidecar-ready", false).ok();
-            info!("Sidecar stdout reader thread terminated");
+            emit_app_log(&app_handle_clone, "SIDECAR", "Process stopped or disconnected", "warn");
         });
 
         self.child = Some(child);
+
+        // Send initial start command to complete handshake
+        let init_cmd = SidecarCommand::Start {
+            config: crate::models::SidecarConfig {
+                model: "moonshine-base-en".to_string(),
+                language: "en".to_string(),
+                vad_threshold: 0.5,
+            },
+        };
+        let _ = self.send_command(&init_cmd);
+
         Ok(())
     }
 
@@ -151,6 +246,18 @@ impl SidecarManager {
         *self.is_ready.lock().unwrap()
     }
 
+    pub fn get_status_info(&self) -> SidecarStatusInfo {
+        SidecarStatusInfo {
+            is_ready: *self.is_ready.lock().unwrap(),
+            is_running: self.child.is_some(),
+            model_name: self.model_name.lock().unwrap().clone(),
+            gpu_available: *self.gpu_available.lock().unwrap(),
+            memory_mb: *self.memory_mb.lock().unwrap(),
+            pid: self.child.as_ref().map(|c| c.id()),
+            last_log: self.last_log.lock().unwrap().clone(),
+        }
+    }
+
     pub fn shutdown(&mut self) {
         if let Some(tx) = self.stdin_tx.take() {
             let _ = tx.send(serde_json::to_string(&SidecarCommand::Shutdown).unwrap_or_default());
@@ -162,6 +269,21 @@ impl SidecarManager {
     }
 }
 
+/// Helper to emit live log messages to the frontend UI
+pub fn emit_app_log(app: &AppHandle, category: &str, message: &str, level: &str) {
+    let timestamp = chrono::Local::now().format("%H:%M:%S%.3f").to_string();
+    app.emit(
+        "app-log",
+        serde_json::json!({
+            "timestamp": timestamp,
+            "category": category,
+            "message": message,
+            "level": level
+        }),
+    )
+    .ok();
+}
+
 /// Helper to locate the sidecar executable across dev and bundled modes
 fn find_sidecar_executable() -> Result<std::path::PathBuf> {
     // 1. Check next to current executable
@@ -170,6 +292,11 @@ fn find_sidecar_executable() -> Result<std::path::PathBuf> {
             let candidate = parent.join("hermion-sidecar");
             if candidate.exists() {
                 return Ok(candidate);
+            }
+            let target_triple = env!("TAURI_ENV_TARGET_TRIPLE");
+            let candidate_triple = parent.join(format!("hermion-sidecar-{}", target_triple));
+            if candidate_triple.exists() {
+                return Ok(candidate_triple);
             }
         }
     }

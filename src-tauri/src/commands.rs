@@ -1,4 +1,5 @@
 use crate::models::{AppSettings, AudioDeviceInfo, HistoryEntry};
+use crate::sidecar::{emit_app_log, SidecarStatusInfo};
 use crate::AppStateManager;
 use base64::Engine;
 use tauri::{Emitter, Manager, State};
@@ -23,6 +24,13 @@ pub fn start_listening(
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let settings = state.db.load_settings().map_err(|e| e.to_string())?;
+
+    emit_app_log(
+        &app_handle,
+        "AUDIO",
+        &format!("Starting audio capture on device: '{}'", settings.audio_device),
+        "info",
+    );
 
     // Send start to sidecar
     {
@@ -58,6 +66,7 @@ pub fn start_listening(
         window.show().ok();
     }
 
+    emit_app_log(&app_handle, "SYSTEM", "Listening active (F5/mic triggered)", "success");
     log::info!("Started listening");
     Ok(())
 }
@@ -96,10 +105,11 @@ pub fn stop_listening(
             .flat_map(|f| f.to_le_bytes())
             .collect();
         let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-        log::info!(
-            "Captured {} samples ({} bytes), forwarding to sidecar",
-            audio_data.len(),
-            bytes.len()
+        emit_app_log(
+            &app_handle,
+            "AUDIO",
+            &format!("Captured {} audio samples ({:.2}s). Streaming to sidecar...", audio_data.len(), audio_data.len() as f32 / 16000.0),
+            "info",
         );
 
         let sidecar = state.sidecar.lock().unwrap();
@@ -114,6 +124,7 @@ pub fn stop_listening(
 
         return Ok(encoded);
     } else {
+        emit_app_log(&app_handle, "AUDIO", "No audio samples recorded", "warn");
         let sidecar = state.sidecar.lock().unwrap();
         let _ = sidecar.send_command(&crate::models::SidecarCommand::Stop);
     }
@@ -122,10 +133,36 @@ pub fn stop_listening(
 }
 
 #[tauri::command]
-pub fn inject_text(text: String, method: String) -> Result<(), String> {
+pub fn inject_text(app_handle: tauri::AppHandle, text: String, method: String) -> Result<(), String> {
+    emit_app_log(
+        &app_handle,
+        "INJECT",
+        &format!("Injecting {} characters via {}", text.len(), method),
+        "info",
+    );
     // Process dictation commands first
     let processed = crate::injection::process_dictation_commands(&text);
-    crate::injection::inject_text(&processed, &method).map_err(|e| e.to_string())
+    crate::injection::inject_text(&processed, &method).map_err(|e| {
+        emit_app_log(&app_handle, "INJECT", &format!("Injection failed: {}", e), "error");
+        e.to_string()
+    })
+}
+
+// ── Sidecar Commands ──────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_sidecar_status(state: State<'_, AppStateManager>) -> SidecarStatusInfo {
+    state.sidecar.lock().unwrap().get_status_info()
+}
+
+#[tauri::command]
+pub fn restart_sidecar(
+    state: State<'_, AppStateManager>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let mut sidecar = state.sidecar.lock().unwrap();
+    sidecar.shutdown();
+    sidecar.spawn(app_handle).map_err(|e| e.to_string())
 }
 
 // ── Settings Commands ─────────────────────────────────────────
@@ -214,7 +251,6 @@ pub fn get_app_state(state: State<'_, AppStateManager>) -> crate::models::AppSta
 
 #[tauri::command]
 pub fn is_first_run(state: State<'_, AppStateManager>) -> bool {
-    // Check if settings have been saved before
     state
         .db
         .load_settings()

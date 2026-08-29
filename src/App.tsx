@@ -14,7 +14,7 @@ import SettingsView from "./components/SettingsView";
 import HistoryView from "./components/HistoryView";
 import Onboarding from "./components/Onboarding";
 import OverlayView from "./components/OverlayView";
-import { isFirstRun, getSettings, injectText, addHistoryEntry, startListening, stopListening } from "./lib/tauri-bridge";
+import { isFirstRun, getSettings, injectText, addHistoryEntry, startListening, stopListening, getSidecarStatus } from "./lib/tauri-bridge";
 import "./styles/index.css";
 
 const MicNavIcon = () => (
@@ -45,12 +45,14 @@ const App: Component = () => {
   onMount(async () => {
     if (isOverlay) return;
 
-    // Check if first run
+    // Check if first run & sync sidecar status
     try {
       const firstRun = await isFirstRun();
       if (firstRun) {
         setCurrentView("onboarding");
       }
+      const sidecarStatus = await getSidecarStatus();
+      setIsSidecarReady(sidecarStatus.is_ready);
     } catch {
       // Fallback — show home
     }

@@ -1,4 +1,4 @@
-import { Component, Show } from "solid-js";
+import { Component, Show, onMount } from "solid-js";
 import {
   isListening,
   setIsListening,
@@ -7,12 +7,14 @@ import {
   setPartialText,
   setFinalText,
   isSidecarReady,
+  setIsSidecarReady,
   micLevel,
   setMicLevel,
   settings,
 } from "../stores/app-store";
-import { startListening, stopListening, injectText, getMicLevel } from "../lib/tauri-bridge";
+import { startListening, stopListening, injectText, getMicLevel, getSidecarStatus } from "../lib/tauri-bridge";
 import Waveform from "./Waveform";
+import LiveConsole from "./LiveConsole";
 
 const MicIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -30,6 +32,15 @@ const StopIcon = () => (
 
 const HomeView: Component = () => {
   let micLevelInterval: number | undefined;
+
+  onMount(async () => {
+    try {
+      const status = await getSidecarStatus();
+      setIsSidecarReady(status.is_ready);
+    } catch {
+      // ignore
+    }
+  });
 
   const handleToggleListening = async () => {
     if (isListening()) {
@@ -147,6 +158,9 @@ const HomeView: Component = () => {
           </Show>
         </Show>
       </div>
+
+      {/* Live Logs & Telemetry Console */}
+      <LiveConsole />
 
       {/* Status Bar */}
       <div class="home-status">
