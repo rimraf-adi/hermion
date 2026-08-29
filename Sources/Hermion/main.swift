@@ -3,10 +3,15 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Run as menu bar accessory agent (no dock icon clutter)
+        // Run as floating accessory agent
         NSApp.setActivationPolicy(.accessory)
         
-        // Connect overlay panel to AppState events
+        // Show the Wispr Flow floating pill immediately on screen
+        DispatchQueue.main.async {
+            FloatingOverlayPanel.shared.showPanel()
+        }
+        
+        // Connect overlay panel events
         AppState.shared.onShowOverlay = {
             DispatchQueue.main.async {
                 FloatingOverlayPanel.shared.showPanel()
@@ -16,7 +21,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         AppState.shared.onHideOverlay = {
             DispatchQueue.main.async {
-                FloatingOverlayPanel.shared.hidePanel()
                 MenuBarManager.shared.updateMenu()
             }
         }
@@ -24,7 +28,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Initialize macOS Menu Bar
         MenuBarManager.shared.setupMenuBar()
         
-        print("Hermion Native macOS Voice Keyboard active. Press F5 or click Menu Bar icon to speak.")
+        // Pre-prompt permissions
+        AppState.shared.audioManager.requestMicrophonePermission { _ in }
+        AppState.shared.speechRecognizer.requestSpeechPermission { _ in }
+        
+        print("Hermion Wispr Flow Voice Keyboard active. Floating pill displayed on screen. Press F5 or click Mic to dictate.")
     }
 }
 

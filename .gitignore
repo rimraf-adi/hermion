@@ -7,6 +7,7 @@ Package.resolved
 *.xcworkspace
 xcuserdata/
 DerivedData/
+Hermion.app/
 
 # OS / IDE
 .DS_Store
