@@ -11,6 +11,11 @@ public struct TextInjector {
     public static func promptAccessibilityPermission() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
+        
+        // Deep link directly into System Settings Accessibility pane
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
     
     /// Inject text into the frontmost application via Pasteboard + multi-strategy Cmd+V paste
@@ -19,7 +24,7 @@ public struct TextInjector {
         
         let pasteboard = NSPasteboard.general
         
-        // 1. Copy transcription to system pasteboard
+        // 1. Always copy transcription to system pasteboard
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
         

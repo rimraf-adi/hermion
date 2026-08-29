@@ -5,6 +5,8 @@ public struct SettingsView: View {
     @ObservedObject var appState = AppState.shared
     @State private var isAccessibilityOk = TextInjector.isAccessibilityGranted()
     
+    private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
+    
     public init() {}
     
     public var body: some View {
@@ -44,13 +46,15 @@ public struct SettingsView: View {
                     Text("Accessibility (Text Injection)")
                     Spacer()
                     if isAccessibilityOk {
-                        Text("Granted")
-                            .foregroundColor(.green)
-                            .font(.caption)
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Granted")
+                        }
+                        .foregroundColor(.green)
+                        .font(.caption)
                     } else {
                         Button("Grant Access") {
                             TextInjector.promptAccessibilityPermission()
-                            isAccessibilityOk = TextInjector.isAccessibilityGranted()
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
@@ -74,6 +78,9 @@ public struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440, height: 380)
         .onAppear {
+            isAccessibilityOk = TextInjector.isAccessibilityGranted()
+        }
+        .onReceive(timer) { _ in
             isAccessibilityOk = TextInjector.isAccessibilityGranted()
         }
     }

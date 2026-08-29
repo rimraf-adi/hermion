@@ -6,6 +6,8 @@ public struct MainDashboardView: View {
     @State private var selectedTab = 0
     @State private var isAccessibilityOk = TextInjector.isAccessibilityGranted()
     
+    private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
+    
     public init() {}
     
     public var body: some View {
@@ -43,6 +45,9 @@ public struct MainDashboardView: View {
         .frame(width: 440, height: 600)
         .background(Color(red: 0.08, green: 0.08, blue: 0.11))
         .onAppear {
+            isAccessibilityOk = TextInjector.isAccessibilityGranted()
+        }
+        .onReceive(timer) { _ in
             isAccessibilityOk = TextInjector.isAccessibilityGranted()
         }
     }
