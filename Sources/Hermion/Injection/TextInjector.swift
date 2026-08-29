@@ -20,9 +20,17 @@ public struct TextInjector {
         let pasteboard = NSPasteboard.general
         let previousString = pasteboard.string(forType: .string)
         
-        // Put transcription onto pasteboard
+        // Always place the transcribed text on the pasteboard
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        
+        // Check if Accessibility is trusted
+        if !isAccessibilityGranted() {
+            print("⚠️ macOS Accessibility permission not granted. Prompting user...")
+            promptAccessibilityPermission()
+            // Keep text in clipboard so user can press Cmd+V manually
+            return
+        }
         
         // Emulate Cmd+V (Command + V)
         let source = CGEventSource(stateID: .combinedSessionState)
@@ -30,6 +38,7 @@ public struct TextInjector {
         
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false) else {
+            print("Failed to create CGEvent for Cmd+V")
             return
         }
         
@@ -39,8 +48,8 @@ public struct TextInjector {
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
         
-        // Restore original clipboard contents after short delay
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
+        // Restore original clipboard contents after 300ms to allow target app to paste
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) {
             if let prev = previousString {
                 pasteboard.clearContents()
                 pasteboard.setString(prev, forType: .string)
@@ -50,6 +59,11 @@ public struct TextInjector {
     
     /// Fallback: Inject via direct unicode keystrokes
     public static func injectViaKeystrokes(_ text: String) {
+        if !isAccessibilityGranted() {
+            promptAccessibilityPermission()
+            return
+        }
+        
         let source = CGEventSource(stateID: .combinedSessionState)
         
         for char in text.utf16 {
@@ -64,7 +78,7 @@ public struct TextInjector {
             keyDown.post(tap: .cghidEventTap)
             keyUp.post(tap: .cghidEventTap)
             
-            usleep(1500) // 1.5ms per character
+            usleep(2000) // 2ms per character
         }
     }
 }
