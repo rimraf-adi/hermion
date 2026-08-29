@@ -5,6 +5,7 @@ public struct SettingsView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var moonshineEngine = MoonshineEngine.shared
     @ObservedObject var hotkeyManager = HotkeyManager.shared
+    @ObservedObject var themeManager = ThemeManager.shared
     @State private var isAccessibilityOk = TextInjector.isAccessibilityGranted()
     
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
@@ -13,6 +14,48 @@ public struct SettingsView: View {
     
     public var body: some View {
         Form {
+            // ── THEME & GRADIENT CUSTOMIZATION ───────────────────────
+            Section(header: Text("Theme & Aesthetic Palette").font(.headline)) {
+                VStack(spacing: 8) {
+                    ForEach(AppTheme.allCases) { theme in
+                        Button(action: {
+                            themeManager.setTheme(theme)
+                        }) {
+                            HStack(spacing: 12) {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(theme.gradient)
+                                    .frame(width: 28, height: 28)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                    )
+                                    .shadow(color: theme.glowColor, radius: 4)
+                                
+                                Text(theme.rawValue)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                if themeManager.currentTheme == theme {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(theme.primaryColor)
+                                        .font(.system(size: 16))
+                                }
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(themeManager.currentTheme == theme ? Color.white.opacity(0.08) : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            
             // ── SPEECH RECOGNITION ENGINE ────────────────────────────
             Section(header: Text("Speech Recognition Engine").font(.headline)) {
                 Picker("Voice Engine", selection: $appState.selectedEngine) {
@@ -70,7 +113,7 @@ public struct SettingsView: View {
                 .cornerRadius(6)
             }
             
-            // ── GENERAL & HOTKEYS ───────────────────────────────────
+            // ── KEYBOARD SHORTCUTS ──────────────────────────────────
             Section(header: Text("Keyboard Shortcuts").font(.headline)) {
                 Picker("Activation Hotkey", selection: $hotkeyManager.selectedHotkey) {
                     ForEach(HotkeyOption.allCases) { option in
@@ -176,7 +219,7 @@ public struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 560)
+        .frame(width: 440, height: 600)
         .onAppear {
             isAccessibilityOk = TextInjector.isAccessibilityGranted()
         }
