@@ -7,6 +7,7 @@ public struct SettingsView: View {
     @ObservedObject var hotkeyManager = HotkeyManager.shared
     @ObservedObject var themeManager = ThemeManager.shared
     @State private var isAccessibilityOk = TextInjector.isAccessibilityGranted()
+    @State private var isLaunchAtLogin = LaunchOnStartupManager.isLaunchAtLoginEnabled()
     
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
     
@@ -111,6 +112,15 @@ public struct SettingsView: View {
                 .padding(6)
                 .background(Color.white.opacity(0.04))
                 .cornerRadius(6)
+            }
+            
+            // ── GENERAL & STARTUP ───────────────────────────────────
+            Section(header: Text("General & Startup").font(.headline)) {
+                Toggle("Launch Hermion on Startup", isOn: $isLaunchAtLogin)
+                    .onChange(of: isLaunchAtLogin) { enabled in
+                        LaunchOnStartupManager.setLaunchAtLogin(enabled: enabled)
+                    }
+                    .help("Automatically launch Hermion in background when logging into macOS.")
             }
             
             // ── KEYBOARD SHORTCUTS ──────────────────────────────────

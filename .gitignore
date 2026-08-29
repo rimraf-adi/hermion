@@ -5,6 +5,7 @@ Package.pins
 Package.resolved
 *.xcodeproj
 *.xcworkspace
+*.dmg
 xcuserdata/
 DerivedData/
 Hermion.app/

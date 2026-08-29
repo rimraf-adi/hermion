@@ -5,7 +5,10 @@ public struct WisprPillView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var hotkeyManager = HotkeyManager.shared
     @ObservedObject var themeManager = ThemeManager.shared
-    @State private var dragOffset: CGSize = .zero
+    
+    @State private var initialMouseLocation: NSPoint = .zero
+    @State private var initialWindowLocation: NSPoint = .zero
+    @State private var isDragging = false
     
     private let numDots = 10
     
@@ -207,18 +210,22 @@ public struct WisprPillView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .gesture(
-            DragGesture(minimumDistance: 1)
-                .onChanged { value in
-                    if let window = NSApp.windows.first(where: { $0 is FloatingOverlayPanel }) {
-                        var frame = window.frame
-                        frame.origin.x += value.translation.width - dragOffset.width
-                        frame.origin.y -= value.translation.height - dragOffset.height
-                        window.setFrame(frame, display: true)
-                        dragOffset = value.translation
+            DragGesture(minimumDistance: 2)
+                .onChanged { _ in
+                    guard let window = NSApp.windows.first(where: { $0 is FloatingOverlayPanel }) else { return }
+                    let currentMouse = NSEvent.mouseLocation
+                    if !isDragging {
+                        isDragging = true
+                        initialMouseLocation = currentMouse
+                        initialWindowLocation = window.frame.origin
+                    } else {
+                        let dx = currentMouse.x - initialMouseLocation.x
+                        let dy = currentMouse.y - initialMouseLocation.y
+                        window.setFrameOrigin(NSPoint(x: initialWindowLocation.x + dx, y: initialWindowLocation.y + dy))
                     }
                 }
                 .onEnded { _ in
-                    dragOffset = .zero
+                    isDragging = false
                 }
         )
         .animation(.spring(response: 0.28, dampingFraction: 0.8), value: appState.isListening)
