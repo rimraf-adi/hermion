@@ -4,6 +4,7 @@ import AppKit
 public struct SettingsView: View {
     @ObservedObject var appState = AppState.shared
     @ObservedObject var moonshineEngine = MoonshineEngine.shared
+    @ObservedObject var hotkeyManager = HotkeyManager.shared
     @State private var isAccessibilityOk = TextInjector.isAccessibilityGranted()
     
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
@@ -70,9 +71,33 @@ public struct SettingsView: View {
             }
             
             // ── GENERAL & HOTKEYS ───────────────────────────────────
-            Section(header: Text("General & Hotkeys").font(.headline)) {
-                Toggle("Push-to-Talk Mode (Hold F5 to speak)", isOn: $appState.isPushToTalk)
-                    .help("When enabled, hold F5 to speak and release to inject. When disabled, press F5 once to start, again to stop.")
+            Section(header: Text("Keyboard Shortcuts").font(.headline)) {
+                Picker("Activation Hotkey", selection: $hotkeyManager.selectedHotkey) {
+                    ForEach(HotkeyOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .onChange(of: hotkeyManager.selectedHotkey) { newOption in
+                    hotkeyManager.setHotkey(newOption)
+                }
+                
+                Toggle("Push-to-Talk (Hold to speak, release to paste)", isOn: $appState.isPushToTalk)
+                    .help("When enabled, hold the hotkey to speak and release to inject. When disabled, tap once to start, tap again or press Enter to paste.")
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("⌨️ Quick Keyboard Actions:")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.gray)
+                    Text("• Press ") + Text(hotkeyManager.selectedHotkey.badgeLabel).fontWeight(.bold) + Text(" to start dictating.")
+                    Text("• Press ") + Text("Enter ↵").fontWeight(.bold) + Text(" while speaking to finish & paste immediately.")
+                    Text("• Press ") + Text("Esc").fontWeight(.bold) + Text(" to cancel dictation.")
+                }
+                .font(.caption2)
+                .foregroundColor(.gray)
+                .padding(6)
+                .background(Color.white.opacity(0.04))
+                .cornerRadius(6)
                 
                 Picker("Language", selection: $appState.languageIdentifier) {
                     Text("English (US)").tag("en-US")

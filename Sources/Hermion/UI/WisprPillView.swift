@@ -3,6 +3,7 @@ import AppKit
 
 public struct WisprPillView: View {
     @ObservedObject var appState = AppState.shared
+    @ObservedObject var hotkeyManager = HotkeyManager.shared
     @State private var dragOffset: CGSize = .zero
     
     private let numDots = 10
@@ -119,7 +120,7 @@ public struct WisprPillView: View {
                     
                     // Center: Idle prompt / hotkey badge
                     HStack(spacing: 4) {
-                        Text("F5")
+                        Text(hotkeyManager.selectedHotkey.badgeLabel)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.9))
                             .padding(.horizontal, 6)
@@ -131,7 +132,7 @@ public struct WisprPillView: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.white.opacity(0.7))
                     }
-                    .frame(width: 76)
+                    .frame(minWidth: 76)
                     
                     // Right: History / Settings Button
                     Button(action: {

@@ -79,6 +79,13 @@ public class AppState: ObservableObject {
             }
         }
         
+        HotkeyManager.shared.onCancel = { [weak self] in
+            guard let self = self else { return }
+            if self.isListening {
+                self.cancelListening()
+            }
+        }
+        
         HotkeyManager.shared.startMonitoring()
     }
     
