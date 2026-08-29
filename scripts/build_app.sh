@@ -39,7 +39,7 @@ cat << 'EOF' > "$CONTENTS_DIR/Info.plist"
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>
-    <true/>
+    <false/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Hermion needs microphone access to transcribe your voice.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
@@ -55,5 +55,8 @@ EOF
 echo "🔏 Signing Hermion.app bundle..."
 codesign --force --deep --sign - "$APP_DIR"
 
-echo "✅ Hermion.app successfully built & signed!"
+echo "🧹 Resetting macOS Accessibility permissions for fresh registration..."
+tccutil reset Accessibility com.hermion.voicekeyboard 2>/dev/null || true
+
+echo "✅ Hermion.app successfully built, signed & TCC reset!"
 echo "🚀 Run with: open Hermion.app"
